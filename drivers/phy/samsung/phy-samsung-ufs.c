@@ -176,20 +176,30 @@ static int samsung_ufs_phy_power_on(struct phy *phy)
 	struct samsung_ufs_phy *ss_phy = get_samsung_ufs_phy(phy);
 	int ret;
 
-	samsung_ufs_phy_ctrl_isol(ss_phy, false);
+	ret = samsung_ufs_phy_ctrl_isol(ss_phy, false);
+	if (ret)
+		return ret;
 
 	ret = clk_bulk_prepare_enable(ss_phy->drvdata->num_clks, ss_phy->clks);
 	if (ret) {
 		dev_err(ss_phy->dev, "failed to enable ufs phy clocks\n");
-		return ret;
+		goto isolate;
 	}
 
 	if (ss_phy->ufs_phy_state == CFG_PRE_INIT) {
 		ret = samsung_ufs_phy_calibrate(phy);
-		if (ret)
+		if (ret) {
 			dev_err(ss_phy->dev, "ufs phy calibration failed\n");
+			goto disable_clks;
+		}
 	}
 
+	return 0;
+
+disable_clks:
+	clk_bulk_disable_unprepare(ss_phy->drvdata->num_clks, ss_phy->clks);
+isolate:
+	samsung_ufs_phy_ctrl_isol(ss_phy, true);
 	return ret;
 }
 
@@ -199,9 +209,7 @@ static int samsung_ufs_phy_power_off(struct phy *phy)
 
 	clk_bulk_disable_unprepare(ss_phy->drvdata->num_clks, ss_phy->clks);
 
-	samsung_ufs_phy_ctrl_isol(ss_phy, true);
-
-	return 0;
+	return samsung_ufs_phy_ctrl_isol(ss_phy, true);
 }
 
 static int samsung_ufs_phy_set_mode(struct phy *generic_phy,

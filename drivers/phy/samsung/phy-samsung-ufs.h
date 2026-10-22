@@ -142,11 +142,10 @@ static inline struct samsung_ufs_phy *get_samsung_ufs_phy(struct phy *phy)
 	return (struct samsung_ufs_phy *)phy_get_drvdata(phy);
 }
 
-static inline void samsung_ufs_phy_ctrl_isol(
-		struct samsung_ufs_phy *phy, u32 isol)
+static inline int samsung_ufs_phy_ctrl_isol(struct samsung_ufs_phy *phy, u32 isol)
 {
-	regmap_update_bits(phy->reg_pmu, phy->isol.offset,
-			   phy->isol.mask, isol ? 0 : phy->isol.en);
+	return regmap_update_bits(phy->reg_pmu, phy->isol.offset,
+				  phy->isol.mask, isol ? 0 : phy->isol.en);
 }
 
 int samsung_ufs_phy_wait_for_lock_acq(struct phy *phy, u8 lane);
