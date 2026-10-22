@@ -753,7 +753,6 @@ static int tcm_input_init(struct tcm_ts *ts)
 
 static int tcm_probe(struct spi_device *spi)
 {
-	static const char * const supplies[] = { "vdd", "avdd" };
 	struct device *dev = &spi->dev;
 	struct tcm_ts *ts;
 	int error;
@@ -786,11 +785,14 @@ static int tcm_probe(struct spi_device *spi)
 		return dev_err_probe(dev, PTR_ERR(ts->reset_gpio),
 				     "failed to get reset GPIO\n");
 
-	error = devm_regulator_bulk_get_enable(dev, ARRAY_SIZE(supplies),
-					       supplies);
+	/* Keep the analog rail ahead of the digital rail, as at cold startup. */
+	error = devm_regulator_get_enable(dev, "avdd");
 	if (error)
-		return dev_err_probe(dev, error, "failed to enable supplies\n");
-	msleep(20);
+		return dev_err_probe(dev, error, "failed to enable analog supply\n");
+	error = devm_regulator_get_enable(dev, "vdd");
+	if (error)
+		return dev_err_probe(dev, error, "failed to enable digital supply\n");
+	msleep(200);
 
 	error = devm_request_threaded_irq(dev, spi->irq, NULL, tcm_irq,
 					  IRQF_ONESHOT | IRQF_NO_AUTOEN,
