@@ -584,6 +584,9 @@ static int exynos_ufs_get_clk_info(struct exynos_ufs *ufs)
 	}
 
 	ufs->mclk_rate = clk_get_rate(ufs->clk_unipro_main);
+	if (!ufs->mclk_rate)
+		return dev_err_probe(hba->dev, -EINVAL,
+				     "failed to get unipro clock rate\n");
 	pclk_rate = clk_get_rate(ufs->clk_hci_core);
 	f_min = ufs->pclk_avail_min;
 	f_max = ufs->pclk_avail_max;
