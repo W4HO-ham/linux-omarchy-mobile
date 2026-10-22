@@ -17,6 +17,7 @@ properties:
     enum:
       - google,gs101-ufs
       - google,gs201-ufs
+      - google,zumapro-ufs
       - samsung,exynos7-ufs
       - samsung,exynosautov9-ufs
       - samsung,exynosautov9-ufs-vh
@@ -94,6 +95,7 @@ allOf:
             enum:
               - google,gs101-ufs
               - google,gs201-ufs
+              - google,zumapro-ufs
 
     then:
       properties:
