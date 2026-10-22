@@ -1145,15 +1145,21 @@ static int exynos_ufs_setup_clocks(struct ufs_hba *hba, bool on,
 				   enum ufs_notify_change_status status)
 {
 	struct exynos_ufs *ufs = ufshcd_get_variant(hba);
+	enum ufs_notify_change_status off_status;
 
 	if (!ufs)
 		return 0;
+
+	/* Keep vendor registers accessible while programming clock stop. */
+	off_status = POST_CHANGE;
+	if (ufs->opts & EXYNOS_UFS_OPT_CLKSTOP_PRE_CHANGE)
+		off_status = PRE_CHANGE;
 
 	if (on && status == PRE_CHANGE) {
 		if (ufs->opts & EXYNOS_UFS_OPT_BROKEN_AUTO_CLK_CTRL)
 			exynos_ufs_disable_auto_ctrl_hcc(ufs);
 		exynos_ufs_ungate_clks(ufs);
-	} else if (!on && status == POST_CHANGE) {
+	} else if (!on && status == off_status) {
 		exynos_ufs_gate_clks(ufs);
 		if (ufs->opts & EXYNOS_UFS_OPT_BROKEN_AUTO_CLK_CTRL)
 			exynos_ufs_enable_auto_ctrl_hcc(ufs);
@@ -2533,7 +2539,8 @@ static const struct exynos_ufs_drv_data zumapro_ufs_drvs = {
 				  UFSHCD_QUIRK_SKIP_DEF_UNIPRO_TIMEOUT_SETTING,
 	.opts			= EXYNOS_UFS_OPT_SKIP_CONFIG_PHY_ATTR |
 				  EXYNOS_UFS_OPT_UFSPR_SECURE |
-				  EXYNOS_UFS_OPT_TIMER_TICK_SELECT,
+				  EXYNOS_UFS_OPT_TIMER_TICK_SELECT |
+				  EXYNOS_UFS_OPT_CLKSTOP_PRE_CHANGE,
 	.iocc_mask		= UFS_GS101_SHARABLE,
 	.drv_init		= zumapro_ufs_drv_init,
 	.pre_link		= zumapro_ufs_pre_link,
