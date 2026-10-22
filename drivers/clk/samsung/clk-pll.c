@@ -461,6 +461,9 @@ static unsigned long samsung_pll0822x_recalc_rate(struct clk_hw *hw,
 	pdiv = (pll_con3 >> PLL0822X_PDIV_SHIFT) & PLL0822X_PDIV_MASK;
 	sdiv = (pll_con3 >> PLL0822X_SDIV_SHIFT) & PLL0822X_SDIV_MASK;
 
+	if (!pdiv)
+		return 0;
+
 	fvco *= mdiv;
 	if (pll->type == pll_0516x)
 		fvco *= 2;
