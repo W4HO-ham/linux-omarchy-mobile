@@ -30,6 +30,7 @@ properties:
   compatible:
     oneOf:
       - enum:
+          - google,zumapro-wakeup-eint
           - samsung,s3c64xx-wakeup-eint
           - samsung,s5pv210-wakeup-eint
           - samsung,exynos4210-wakeup-eint
