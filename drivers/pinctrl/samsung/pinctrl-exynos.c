@@ -673,8 +673,26 @@ static const struct exynos_irq_chip gs101_wkup_irq_chip __initconst = {
 	.set_eint_wakeup_mask = gs101_pinctrl_set_eint_wakeup_mask,
 };
 
+/* Runtime EINT handling only; G4 system-wakeup masks are not implemented. */
+static const struct exynos_irq_chip zumapro_wkup_irq_chip __initconst = {
+	.chip = {
+		.name = "zumapro_wkup_irq_chip",
+		.irq_unmask = exynos_irq_unmask,
+		.irq_mask = exynos_irq_mask,
+		.irq_ack = exynos_irq_ack,
+		.irq_set_type = exynos_irq_set_type,
+		.irq_request_resources = exynos_irq_request_resources,
+		.irq_release_resources = exynos_irq_release_resources,
+	},
+	.eint_con = EXYNOS7_WKUP_ECON_OFFSET,
+	.eint_mask = EXYNOS7_WKUP_EMASK_OFFSET,
+	.eint_pend = EXYNOS7_WKUP_EPEND_OFFSET,
+};
+
 /* list of external wakeup controllers supported */
 static const struct of_device_id exynos_wkup_irq_ids[] = {
+	{ .compatible = "google,zumapro-wakeup-eint",
+			.data = &zumapro_wkup_irq_chip },
 	{ .compatible = "google,gs101-wakeup-eint",
 			.data = &gs101_wkup_irq_chip },
 	{ .compatible = "samsung,s5pv210-wakeup-eint",
@@ -795,11 +813,32 @@ __init int exynos_eint_wkup_init(struct samsung_pinctrl_drv_data *d)
 		if (bank->eint_type != EINT_TYPE_WKUP)
 			continue;
 
+		/* Keep unadvertised G4 bank interrupts under firmware ownership. */
+		if (irq_chip == &zumapro_wkup_irq_chip &&
+		    !fwnode_property_present(bank->fwnode, "interrupt-controller"))
+			continue;
+
 		bank->irq_chip = devm_kmemdup(dev, irq_chip, sizeof(*irq_chip),
 					      GFP_KERNEL);
 		if (!bank->irq_chip)
 			return -ENOMEM;
 		bank->irq_chip->chip.name = bank->name;
+
+		/* Mask inherited G4 inputs before installing their parent handlers. */
+		if (irq_chip == &zumapro_wkup_irq_chip) {
+			u32 mask;
+			int ret;
+
+			ret = clk_enable(d->pclk);
+			if (ret)
+				return ret;
+			mask = readl(bank->eint_base + irq_chip->eint_mask
+				     + bank->eint_offset);
+			writel(mask | GENMASK(bank->nr_pins - 1, 0),
+			       bank->eint_base + irq_chip->eint_mask
+				     + bank->eint_offset);
+			clk_disable(d->pclk);
+		}
 
 		bank->irq_domain = irq_domain_create_linear(bank->fwnode,
 				bank->nr_pins, &exynos_eint_irqd_ops, bank);
