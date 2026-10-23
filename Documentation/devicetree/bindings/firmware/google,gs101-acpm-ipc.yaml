@@ -25,6 +25,7 @@ properties:
     enum:
       - google,gs101-acpm-ipc
       - google,gs201-acpm-ipc
+      - google,zumapro-acpm-ipc
 
   "#clock-cells":
     const: 1
@@ -58,17 +59,12 @@ properties:
         enum:
           - samsung,s2mpg10-pmic
           - samsung,s2mpg12-pmic
+          - samsung,s2mpg14-pmic
 
   pmic-2:
     description: Child node describing the sub PMIC.
     type: object
     additionalProperties: true
-
-    properties:
-      compatible:
-        enum:
-          - samsung,s2mpg11-pmic
-          - samsung,s2mpg13-pmic
 
   shmem:
     description:
@@ -87,6 +83,17 @@ allOf:
   - if:
       properties:
         compatible:
+          const: google,zumapro-acpm-ipc
+    then:
+      properties:
+        pmic: false
+        pmic-1:
+          properties:
+            compatible:
+              const: samsung,s2mpg14-pmic
+  - if:
+      properties:
+        compatible:
           const: google,gs201-acpm-ipc
     then:
       properties:
@@ -99,7 +106,11 @@ allOf:
           properties:
             compatible:
               const: samsung,s2mpg13-pmic
-    else:
+  - if:
+      properties:
+        compatible:
+          const: google,gs101-acpm-ipc
+    then:
       properties:
         pmic-1:
           properties:
