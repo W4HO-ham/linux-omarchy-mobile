@@ -16,6 +16,9 @@ properties:
           - google,gs101-pmu
           - google,zuma-pmu
       - items:
+          - const: google,zumapro-pmu
+          - const: google,zuma-pmu
+      - items:
           - enum:
               - samsung,exynos3250-pmu
               - samsung,exynos4210-pmu
