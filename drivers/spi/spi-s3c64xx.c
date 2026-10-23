@@ -153,6 +153,7 @@ struct s3c64xx_spi_dma_data {
  * @clk_from_cmu: True, if the controller does not include a clock mux and
  *	prescaler unit.
  * @clk_ioclk: True if clock is present on this device
+ * @manual_native_cs: True if the SPI core controls native CS over each message.
  * @has_loopback: True if loopback mode can be supported
  * @use_32bit_io: True if the SoC allows only 32-bit register accesses.
  *
@@ -173,6 +174,7 @@ struct s3c64xx_spi_port_config {
 	bool	high_speed;
 	bool	clk_from_cmu;
 	bool	clk_ioclk;
+	bool	manual_native_cs;
 	bool	has_loopback;
 	bool	use_32bit_io;
 };
@@ -360,6 +362,21 @@ static void s3c64xx_spi_set_cs(struct spi_device *spi, bool enable)
 	if (sdd->cntrlr_info->no_cs)
 		return;
 
+	if (sdd->port_conf->manual_native_cs && !spi_is_csgpiod(spi)) {
+		bool high = true;
+
+		/* The SPI core owns assertion and cs_off for each transfer. */
+		if (enable)
+			return;
+
+		/* setup() still needs to leave native CS deasserted. */
+		if (spi->mode & SPI_CS_HIGH)
+			high = !high;
+		writel(high ? S3C64XX_SPI_CS_SIG_INACT : 0,
+		       sdd->regs + S3C64XX_SPI_CS_REG);
+		return;
+	}
+
 	if (enable) {
 		if (!(sdd->port_conf->quirks & S3C64XX_SPI_QUIRK_CS_AUTO)) {
 			writel(0, sdd->regs + S3C64XX_SPI_CS_REG);
@@ -375,6 +392,17 @@ static void s3c64xx_spi_set_cs(struct spi_device *spi, bool enable)
 			writel(S3C64XX_SPI_CS_SIG_INACT,
 			       sdd->regs + S3C64XX_SPI_CS_REG);
 	}
+}
+
+/* The SPI core has already converted logical activation to output level. */
+static void s3c64xx_spi_set_native_cs(struct spi_device *spi, bool high)
+{
+	struct s3c64xx_spi_driver_data *sdd =
+					spi_controller_get_devdata(spi->controller);
+
+	if (!sdd->cntrlr_info->no_cs)
+		writel(high ? S3C64XX_SPI_CS_SIG_INACT : 0,
+		       sdd->regs + S3C64XX_SPI_CS_REG);
 }
 
 static int s3c64xx_spi_prepare_transfer(struct spi_controller *spi)
@@ -1302,6 +1330,8 @@ static int s3c64xx_spi_probe(struct platform_device *pdev)
 	host->unprepare_transfer_hardware = s3c64xx_spi_unprepare_transfer;
 	host->prepare_message = s3c64xx_spi_prepare_message;
 	host->transfer_one = s3c64xx_spi_transfer_one;
+	if (sdd->port_conf->manual_native_cs)
+		host->set_cs = s3c64xx_spi_set_native_cs;
 	host->max_transfer_size = s3c64xx_spi_max_transfer_size;
 	host->num_chipselect = sci->num_cs;
 	host->use_gpio_descriptors = true;
@@ -1607,6 +1637,19 @@ static const struct s3c64xx_spi_port_config gs101_spi_port_config = {
 	.quirks		= S3C64XX_SPI_QUIRK_CS_AUTO,
 };
 
+static const struct s3c64xx_spi_port_config zumapro_spi_port_config = {
+	.fifo_depth	= 64,
+	.rx_fifomask	= S3C64XX_SPI_ST_RX_FIFO_RDY_V2,
+	.tx_fifomask	= S3C64XX_SPI_ST_TX_FIFO_RDY_V2,
+	.tx_st_done	= 25,
+	.clk_div	= 4,
+	.high_speed	= true,
+	.clk_from_cmu	= true,
+	.has_loopback	= true,
+	.use_32bit_io	= true,
+	.manual_native_cs = true,
+};
+
 static const struct platform_device_id s3c64xx_spi_driver_ids[] = {
 	{
 		.name = "s3c6410-spi",
@@ -1617,6 +1660,9 @@ static const struct platform_device_id s3c64xx_spi_driver_ids[] = {
 MODULE_DEVICE_TABLE(platform, s3c64xx_spi_driver_ids);
 
 static const struct of_device_id s3c64xx_spi_dt_match[] = {
+	{ .compatible = "google,zumapro-spi",
+			.data = &zumapro_spi_port_config,
+	},
 	{ .compatible = "google,gs101-spi",
 			.data = &gs101_spi_port_config,
 	},
