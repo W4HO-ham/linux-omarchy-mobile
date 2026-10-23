@@ -29,6 +29,9 @@ properties:
           - samsung,exynosautov9-wdt              # for Exynosautov9
           - samsung,exynosautov920-wdt            # for Exynosautov920
       - items:
+          - const: google,zumapro-wdt
+          - const: google,zuma-wdt
+      - items:
           - enum:
               - tesla,fsd-wdt
           - const: samsung,exynos7-wdt
@@ -52,13 +55,13 @@ properties:
     enum: [0, 1, 2]
     description:
       Index of CPU cluster on which watchdog is running (in case of Exynos850,
-      Exynos990, Google gs101 or Google zuma).
+      Exynos990, Google gs101, zuma or zumapro).
 
   samsung,syscon-phandle:
     $ref: /schemas/types.yaml#/definitions/phandle
     description:
       Phandle to the PMU system controller node (in case of Exynos5250,
-      Exynos5420, Exynos7, Exynos850, Exynos990, gs101 and zuma).
+      Exynos5420, Exynos7, Exynos850, Exynos990, gs101, zuma and zumapro).
 
 required:
   - compatible
