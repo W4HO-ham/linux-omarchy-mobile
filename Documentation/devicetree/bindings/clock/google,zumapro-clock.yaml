@@ -1,0 +1,125 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/clock/google,zumapro-clock.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Google Tensor G4 clock controllers
+
+maintainers:
+  - W4HO <87742609+W4HO-ham@users.noreply.github.com>
+
+description: |
+  CMU_TOP supplies the NoC and UFS clock paths to CMU_HSI2 and the supply-GPIO
+  path in CMU_PERIC0. CMU_TOP also provides the HSI0 parent rate paths.
+  The external oscillator supplies the PLL reference and oscillator mux
+  paths.
+  Clock identifiers are defined in dt-bindings/clock/google,zumapro.h.
+
+properties:
+  compatible:
+    enum:
+      - google,zumapro-cmu-top
+      - google,zumapro-cmu-hsi2
+      - google,zumapro-cmu-peric0
+
+  reg:
+    maxItems: 1
+
+  "#clock-cells":
+    const: 1
+
+  clocks:
+    minItems: 1
+    maxItems: 4
+
+  clock-names:
+    minItems: 1
+    maxItems: 4
+
+required:
+  - compatible
+  - reg
+  - "#clock-cells"
+  - clocks
+  - clock-names
+
+allOf:
+  - if:
+      properties:
+        compatible:
+          const: google,zumapro-cmu-top
+    then:
+      properties:
+        clocks:
+          items:
+            - description: External oscillator reference clock
+        clock-names:
+          items:
+            - const: oscclk
+  - if:
+      properties:
+        compatible:
+          const: google,zumapro-cmu-hsi2
+    then:
+      properties:
+        clocks:
+          items:
+            - description: HSI2 oscillator clock
+            - description: HSI2 NoC clock from CMU_TOP
+            - description: HSI2 UFS clock from CMU_TOP
+            - description: HSI2 PCIe clock from CMU_TOP
+        clock-names:
+          items:
+            - const: oscclk
+            - const: bus
+            - const: ufs
+            - const: pcie
+  - if:
+      properties:
+        compatible:
+          const: google,zumapro-cmu-peric0
+    then:
+      properties:
+        clocks:
+          items:
+            - description: PERIC0 oscillator clock
+            - description: PERIC0 NoC clock from CMU_TOP
+        clock-names:
+          items:
+            - const: oscclk
+            - const: bus
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/clock/google,zumapro.h>
+
+    cmu_top: clock-controller@26040000 {
+        compatible = "google,zumapro-cmu-top";
+        reg = <0x26040000 0x8000>;
+        #clock-cells = <1>;
+        clocks = <&oscclk>;
+        clock-names = "oscclk";
+    };
+
+    clock-controller@13000000 {
+        compatible = "google,zumapro-cmu-hsi2";
+        reg = <0x13000000 0x8000>;
+        #clock-cells = <1>;
+        clocks = <&oscclk>, <&cmu_top CLK_DOUT_HSI2_NOC>,
+                 <&cmu_top CLK_DOUT_HSI2_UFS>,
+                 <&cmu_top CLK_DOUT_HSI2_PCIE>;
+        clock-names = "oscclk", "bus", "ufs", "pcie";
+    };
+
+    clock-controller@10800000 {
+        compatible = "google,zumapro-cmu-peric0";
+        reg = <0x10800000 0x8000>;
+        #clock-cells = <1>;
+        clocks = <&oscclk>, <&cmu_top CLK_DOUT_PERIC0_NOC>;
+        clock-names = "oscclk", "bus";
+    };
+...
+
