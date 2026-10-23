@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/regulator/samsung,s2mpg14-regulator.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Samsung S2MPG14 Power Management IC regulators
+
+maintainers:
+  - W4HO <87742609+W4HO-ham@users.noreply.github.com>
+
+description: |
+  LDO4M and LDO25M are programmable voltage outputs of the S2MPG14 PMIC.
+  They supply the Pixel 9a touchscreen's analog and digital power rails.
+
+patternProperties:
+  "^ldo(4|25)m$":
+    type: object
+    $ref: regulator.yaml#
+    unevaluatedProperties: false
+    properties:
+      regulator-ramp-delay: false
+
+additionalProperties: false
