@@ -16,6 +16,7 @@
 #include <linux/mfd/samsung/s2mpg11.h>
 #include <linux/mfd/samsung/s2mpg12.h>
 #include <linux/mfd/samsung/s2mpg13.h>
+#include <linux/mfd/samsung/s2mpg14.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
@@ -554,6 +555,53 @@ static const struct regmap_config s2mpg13_regmap_config_gpio = {
 	.cache_type = REGCACHE_NONE,
 };
 
+/* S2MPG14 support deliberately exposes only the qualified touch LDOs. */
+static const struct regmap_range s2mpg14_common_registers[] = {
+	regmap_reg_range(S2MPG14_COMMON_CHIPID, S2MPG14_COMMON_CHIPID),
+};
+
+static const struct regmap_access_table s2mpg14_common_rd_table = {
+	.yes_ranges = s2mpg14_common_registers,
+	.n_yes_ranges = ARRAY_SIZE(s2mpg14_common_registers),
+};
+
+static const struct regmap_range s2mpg14_common_no_writes[] = {
+	regmap_reg_range(0, S2MPG14_COMMON_CHIPID),
+};
+
+static const struct regmap_access_table s2mpg14_common_wr_table = {
+	.no_ranges = s2mpg14_common_no_writes,
+	.n_no_ranges = ARRAY_SIZE(s2mpg14_common_no_writes),
+};
+
+static const struct regmap_config s2mpg14_regmap_config_common = {
+	.name = "common",
+	.reg_bits = ACPM_ADDR_BITS,
+	.val_bits = 8,
+	.max_register = S2MPG14_COMMON_CHIPID,
+	.rd_table = &s2mpg14_common_rd_table,
+	.wr_table = &s2mpg14_common_wr_table,
+};
+
+static const struct regmap_range s2mpg14_pmic_registers[] = {
+	regmap_reg_range(S2MPG14_PMIC_L4M_CTRL, S2MPG14_PMIC_L4M_CTRL),
+	regmap_reg_range(S2MPG14_PMIC_L25M_CTRL, S2MPG14_PMIC_L25M_CTRL),
+};
+
+static const struct regmap_access_table s2mpg14_pmic_table = {
+	.yes_ranges = s2mpg14_pmic_registers,
+	.n_yes_ranges = ARRAY_SIZE(s2mpg14_pmic_registers),
+};
+
+static const struct regmap_config s2mpg14_regmap_config_pmic = {
+	.name = "pmic",
+	.reg_bits = ACPM_ADDR_BITS,
+	.val_bits = 8,
+	.max_register = S2MPG14_PMIC_L25M_CTRL,
+	.rd_table = &s2mpg14_pmic_table,
+	.wr_table = &s2mpg14_pmic_table,
+};
+
 struct sec_pmic_acpm_shared_bus_context {
 	struct acpm_handle *acpm;
 	unsigned int acpm_chan_id;
@@ -782,11 +830,21 @@ static const struct sec_pmic_acpm_platform_data s2mpg13_data = {
 	.no_irq = true,
 };
 
+static const struct sec_pmic_acpm_platform_data s2mpg14_data = {
+	.device_type = S2MPG14,
+	.acpm_chan_id = 2,
+	.speedy_channel = 0,
+	.regmap_cfg_common = &s2mpg14_regmap_config_common,
+	.regmap_cfg_pmic = &s2mpg14_regmap_config_pmic,
+	.no_irq = true,
+};
+
 static const struct of_device_id sec_pmic_acpm_of_match[] = {
 	{ .compatible = "samsung,s2mpg10-pmic", .data = &s2mpg10_data, },
 	{ .compatible = "samsung,s2mpg11-pmic", .data = &s2mpg11_data, },
 	{ .compatible = "samsung,s2mpg12-pmic", .data = &s2mpg12_data, },
 	{ .compatible = "samsung,s2mpg13-pmic", .data = &s2mpg13_data, },
+	{ .compatible = "samsung,s2mpg14-pmic", .data = &s2mpg14_data, },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, sec_pmic_acpm_of_match);
