@@ -17,7 +17,8 @@ description: |
 
   All mode properties are vendor specific, it is a indication to tell
   the bootloader what to do when the system reboots, and should be named
-  as mode-xxx = <magic> (xxx is mode name, magic should be a non-zero value).
+  as mode-xxx = <magic> (xxx is the mode name). A zero magic value is
+  written like any other value.
 
   For example, modes common Android platform are:
     - normal: Normal reboot mode, system reboot with command "reboot".
