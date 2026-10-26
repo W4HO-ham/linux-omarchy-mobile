@@ -52,6 +52,11 @@ properties:
           - enum:
               - google,zuma-husky
           - const: google,zuma
+      - description: Google Tensor G4 (zumapro) boards
+        items:
+          - enum:
+              - google,zumapro-tegu
+          - const: google,zumapro
 
   # Bootloader requires an ect node to be present: empty on gs101 and gs201,
   # with the location of the ECT blob on zuma
