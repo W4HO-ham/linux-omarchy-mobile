@@ -213,6 +213,14 @@ static inline void exynos_ufs_ungate_clks(struct exynos_ufs *ufs)
 	exynos_ufs_ctrl_clkstop(ufs, false);
 }
 
+/* Turn off broken automatic clock control, then ungate the host clocks. */
+static void exynos_ufs_ungate_host_clks(struct exynos_ufs *ufs)
+{
+	if (ufs->opts & EXYNOS_UFS_OPT_BROKEN_AUTO_CLK_CTRL)
+		exynos_ufs_disable_auto_ctrl_hcc(ufs);
+	exynos_ufs_ungate_clks(ufs);
+}
+
 static int exynos_ufs_shareability(struct exynos_ufs *ufs)
 {
 	/* IO Coherency setting */
@@ -1145,7 +1153,7 @@ static int exynos_ufs_setup_clocks(struct ufs_hba *hba, bool on,
 				   enum ufs_notify_change_status status)
 {
 	struct exynos_ufs *ufs = ufshcd_get_variant(hba);
-	enum ufs_notify_change_status off_status;
+	enum ufs_notify_change_status off_status, on_status;
 
 	if (!ufs)
 		return 0;
@@ -1155,10 +1163,17 @@ static int exynos_ufs_setup_clocks(struct ufs_hba *hba, bool on,
 	if (ufs->opts & EXYNOS_UFS_OPT_CLKSTOP_PRE_CHANGE)
 		off_status = PRE_CHANGE;
 
-	if (on && status == PRE_CHANGE) {
-		if (ufs->opts & EXYNOS_UFS_OPT_BROKEN_AUTO_CLK_CTRL)
-			exynos_ufs_disable_auto_ctrl_hcc(ufs);
-		exynos_ufs_ungate_clks(ufs);
+	/*
+	 * On SoCs whose CMU gates really stop the host clocks (zumapro), the
+	 * clock-stop registers can only be written once the gates are open
+	 * again: ungate after the clocks are enabled.
+	 */
+	on_status = PRE_CHANGE;
+	if (ufs->opts & EXYNOS_UFS_OPT_UNGATE_POST_CHANGE)
+		on_status = POST_CHANGE;
+
+	if (on && status == on_status) {
+		exynos_ufs_ungate_host_clks(ufs);
 	} else if (!on && status == off_status) {
 		exynos_ufs_gate_clks(ufs);
 		if (ufs->opts & EXYNOS_UFS_OPT_BROKEN_AUTO_CLK_CTRL)
@@ -1179,7 +1194,8 @@ static int exynos_ufs_pre_link(struct ufs_hba *hba)
 	exynos_ufs_config_intr(ufs, DFES_DEF_L4_ERRS, UNIPRO_L4);
 	exynos_ufs_set_unipro_pclk_div(ufs);
 
-	exynos_ufs_setup_clocks(hba, true, PRE_CHANGE);
+	/* The clocks are on here whichever status ungates them. */
+	exynos_ufs_ungate_host_clks(ufs);
 
 	/* unipro */
 	exynos_ufs_config_unipro(ufs);
@@ -1697,9 +1713,7 @@ static void exynos_ufs_pre_hibern8(struct ufs_hba *hba, enum uic_cmd_dme cmd)
 	};
 
 	if (cmd == UIC_CMD_DME_HIBER_EXIT) {
-		if (ufs->opts & EXYNOS_UFS_OPT_BROKEN_AUTO_CLK_CTRL)
-			exynos_ufs_disable_auto_ctrl_hcc(ufs);
-		exynos_ufs_ungate_clks(ufs);
+		exynos_ufs_ungate_host_clks(ufs);
 
 		phy_notify_state(ufs->phy, phystate);
 
@@ -2540,7 +2554,8 @@ static const struct exynos_ufs_drv_data zumapro_ufs_drvs = {
 	.opts			= EXYNOS_UFS_OPT_SKIP_CONFIG_PHY_ATTR |
 				  EXYNOS_UFS_OPT_UFSPR_SECURE |
 				  EXYNOS_UFS_OPT_TIMER_TICK_SELECT |
-				  EXYNOS_UFS_OPT_CLKSTOP_PRE_CHANGE,
+				  EXYNOS_UFS_OPT_CLKSTOP_PRE_CHANGE |
+				  EXYNOS_UFS_OPT_UNGATE_POST_CHANGE,
 	.iocc_mask		= UFS_GS101_SHARABLE,
 	.drv_init		= zumapro_ufs_drv_init,
 	.pre_link		= zumapro_ufs_pre_link,

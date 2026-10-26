@@ -246,6 +246,7 @@ struct exynos_ufs {
 #define EXYNOS_UFS_OPT_UFSPR_SECURE		BIT(6)
 #define EXYNOS_UFS_OPT_TIMER_TICK_SELECT	BIT(7)
 #define EXYNOS_UFS_OPT_CLKSTOP_PRE_CHANGE	BIT(8)
+#define EXYNOS_UFS_OPT_UNGATE_POST_CHANGE	BIT(9)
 };
 
 #define for_each_ufs_rx_lane(ufs, i) \
