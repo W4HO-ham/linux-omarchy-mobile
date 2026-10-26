@@ -673,7 +673,12 @@ static const struct exynos_irq_chip gs101_wkup_irq_chip __initconst = {
 	.set_eint_wakeup_mask = gs101_pinctrl_set_eint_wakeup_mask,
 };
 
-/* Runtime EINT handling only; G4 system-wakeup masks are not implemented. */
+/*
+ * Runtime EINT handling and s2idle wake: the wake-up EINTs are chained
+ * on GIC SPIs that stay enabled through s2idle, so a wake-enabled pin
+ * only has to stay unmasked. The G4 PMU system-wakeup masks are not
+ * implemented, so deeper system sleep states cannot wake from these pins.
+ */
 static const struct exynos_irq_chip zumapro_wkup_irq_chip __initconst = {
 	.chip = {
 		.name = "zumapro_wkup_irq_chip",
@@ -681,6 +686,7 @@ static const struct exynos_irq_chip zumapro_wkup_irq_chip __initconst = {
 		.irq_mask = exynos_irq_mask,
 		.irq_ack = exynos_irq_ack,
 		.irq_set_type = exynos_irq_set_type,
+		.irq_set_wake = gs101_wkup_irq_set_wake,
 		.irq_request_resources = exynos_irq_request_resources,
 		.irq_release_resources = exynos_irq_release_resources,
 	},
