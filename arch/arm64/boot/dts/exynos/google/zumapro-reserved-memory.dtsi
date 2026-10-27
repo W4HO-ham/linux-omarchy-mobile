@@ -1,0 +1,196 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Google Tensor G4 firmware memory reservations.
+ *
+ * Copyright 2023 Google LLC.
+ *
+ * Fixed ranges from Google's GPL zumapro tree, plus two gaps next to them
+ * that stay reserved until they're shown to be unused. The bootloader adds
+ * its own secure ranges; the board file adds the splash screen.
+ */
+
+/ {
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <1>;
+		ranges;
+
+		xhci_dma_buffer: xhci-dma-buffer@17bb5000 {
+			reg = <0x0 0x17bb5000 0x0000b000>;
+			no-map;
+		};
+
+		xhci_dma: xhci-dma@17bc0000 {
+			reg = <0x0 0x17bc0000 0x00040000>;
+			no-map;
+		};
+
+		cp_aoc_rmem: cp-aoc@197fd000 {
+			reg = <0x0 0x197fd000 0x00003000>;
+			no-map;
+		};
+
+		ect_binary: ect@90000000 {
+			reg = <0x0 0x90000000 0x00060000>;
+			no-map;
+		};
+
+		gsa_reserved_protected: gsa@90200000 {
+			reg = <0x0 0x90200000 0x003ff000>;
+			no-map;
+		};
+
+		gsa_reserved_log: gsa-log@905ff000 {
+			reg = <0x0 0x905ff000 0x00001000>;
+			no-map;
+		};
+
+		gxp_scratchpad_reserved: gxp-scratchpad@91300000 {
+			reg = <0x0 0x91300000 0x00060000>;
+			no-map;
+		};
+
+		iif_wait_table_reserved: iif-wait-table@91360000 {
+			reg = <0x0 0x91360000 0x00020000>;
+			no-map;
+		};
+
+		iif_signal_table_reserved: iif-signal-table@91380000 {
+			reg = <0x0 0x91380000 0x00020000>;
+			no-map;
+		};
+
+		/* Not in Google's list; kept reserved until shown unused. */
+		gxp_gap_reserved: gxp-gap@913a0000 {
+			reg = <0x0 0x913a0000 0x00060000>;
+			no-map;
+		};
+
+		gxp_secure_data_reserved: gxp-secure-data@91400000 {
+			reg = <0x0 0x91400000 0x00900000>;
+			no-map;
+		};
+
+		gxp_fw_reserved: gxp-fw@91d00000 {
+			reg = <0x0 0x91d00000 0x00300000>;
+			no-map;
+		};
+
+		gxp_mcu_fw_reserved: gxp-mcu-fw@92000000 {
+			reg = <0x0 0x92000000 0x00400000>;
+			no-map;
+		};
+
+		tpu_fw_reserved: tpu-fw@92e00000 {
+			reg = <0x0 0x92e00000 0x01200000>;
+			no-map;
+		};
+
+		aoc_reserved: aoc@94000000 {
+			reg = <0x0 0x94000000 0x03000000>;
+			no-map;
+		};
+
+		xhci_dma_dram: xhci-dma-dram@97000000 {
+			reg = <0x0 0x97000000 0x00400000>;
+			no-map;
+		};
+
+		seclog_reserved: seclog@c3000000 {
+			reg = <0x0 0xc3000000 0x00080000>;
+			no-map;
+		};
+
+		dss_header: dss-header@d8100000 {
+			reg = <0x0 0xd8100000 0x00010000>;
+			no-map;
+		};
+
+		dss_kevents: dss-kevents@d8110000 {
+			reg = <0x0 0xd8110000 0x00700000>;
+			no-map;
+		};
+
+		dss_s2d: dss-s2d@d8810000 {
+			reg = <0x0 0xd8810000 0x01800000>;
+			no-map;
+		};
+
+		dss_array_reset: dss-array-reset@da010000 {
+			reg = <0x0 0xda010000 0x00a00000>;
+			no-map;
+		};
+
+		dss_array_panic: dss-array-panic@daa10000 {
+			reg = <0x0 0xdaa10000 0x00a00000>;
+			no-map;
+		};
+
+		dss_slcdump: dss-slcdump@db410000 {
+			reg = <0x0 0xdb410000 0x01100000>;
+			no-map;
+		};
+
+		dss_preslcdump: dss-preslcdump@dc510000 {
+			reg = <0x0 0xdc510000 0x01100000>;
+			no-map;
+		};
+
+		dss_bcm: dss-bcm@dd610000 {
+			reg = <0x0 0xdd610000 0x00400000>;
+			no-map;
+		};
+
+		dss_itmon: dss-itmon@dda10000 {
+			reg = <0x0 0xdda10000 0x00010000>;
+			no-map;
+		};
+
+		dss_s2d_extract: dss-s2d-extract@dda20000 {
+			reg = <0x0 0xdda20000 0x00600000>;
+			no-map;
+		};
+
+		cp_rmem_1: cp-extra@e8000000 {
+			reg = <0x0 0xe8000000 0x02000000>;
+			no-map;
+		};
+
+		cp_rmem: cp@ea400000 {
+			reg = <0x0 0xea400000 0x00c00000>;
+			no-map;
+		};
+
+		cp_msi_rmem: cp-msi@f6200000 {
+			reg = <0x0 0xf6200000 0x00001000>;
+			no-map;
+		};
+
+		dss_log_reserved: dss-log@fd3f0000 {
+			reg = <0x0 0xfd3f0000 0x0000e000>;
+			no-map;
+		};
+
+		debug_kinfo_reserved: debug_kinfo_reserved@fd3fe000 {
+			reg = <0x0 0xfd3fe000 0x00001000>;
+			no-map;
+		};
+
+		/* Reserve only; the pstore consumer is not enabled yet. */
+		ramoops_reserved: ramoops@fd3ff000 {
+			reg = <0x0 0xfd3ff000 0x00400000>;
+			no-map;
+		};
+
+		/* Not in Google's list; kept reserved until shown unused. */
+		debug_tail_reserved: debug-tail@fd7ff000 {
+			reg = <0x0 0xfd7ff000 0x00001000>;
+			no-map;
+		};
+
+		bldr_log_reserved: bldr-log@fd800000 {
+			reg = <0x0 0xfd800000 0x00100000>;
+			no-map;
+		};
+	};
+};
