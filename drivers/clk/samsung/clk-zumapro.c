@@ -6,7 +6,7 @@
  * cal-if/zuma/cmucal-{sfr,node}.c, Copyright 2022 Samsung Electronics Co., Ltd.
  * Google's G4 integration also uses cal-if/zuma; the name is intentional.
  * UFS, supply GPIO, the PCIe reference path and HSI0 (USB, eUSB2, the
- * touchscreen's USI2) are described. PLLs, muxes
+ * touchscreen's USI2, the GNSS SPI's USI3) are described. PLLs, muxes
  * and dividers retain firmware settings; no PLL rate table is supplied.
  */
 
@@ -602,6 +602,7 @@ PNAME(mout_hsi0_alt_user_parents) = { "oscclk", "zumapro_gout_hsi0_alt" };
 PNAME(mout_hsi0_noc_local_parents) = { "zumapro_mout_hsi0_noc_user", "zumapro_mout_hsi0_alt_user" };
 PNAME(mout_hsi0_peri_user_parents) = { "oscclk", "zumapro_dout_hsi0_peri" };
 PNAME(mout_hsi0_usi2_local_parents) = { "zumapro_mout_hsi0_peri_user", "oscclk" };
+PNAME(mout_hsi0_usi3_local_parents) = { "zumapro_mout_hsi0_peri_user", "oscclk" };
 
 static const struct samsung_pll_clock hsi0_plls[] __initconst = {
 	PLL(pll_0822x, CLK_FOUT_HSI0_USB, "zumapro_fout_hsi0_usb", "oscclk",
@@ -624,6 +625,9 @@ static const struct samsung_mux_clock hsi0_muxes[] __initconst = {
 	MUX_F(CLK_MOUT_HSI0_USI2_LOCAL, "zumapro_mout_hsi0_usi2_local",
 	      mout_hsi0_usi2_local_parents,
 	      0x101c, 0, 1, 0, CLK_MUX_READ_ONLY),
+	MUX_F(CLK_MOUT_HSI0_USI3_LOCAL, "zumapro_mout_hsi0_usi3_local",
+	      mout_hsi0_usi3_local_parents,
+	      0x1020, 0, 1, 0, CLK_MUX_READ_ONLY),
 };
 
 static const struct samsung_div_clock hsi0_dividers[] __initconst = {
@@ -633,6 +637,8 @@ static const struct samsung_div_clock hsi0_dividers[] __initconst = {
 	      0x180c, 0, 2, 0, CLK_DIVIDER_READ_ONLY),
 	DIV_F(CLK_DOUT_HSI0_USI2, "zumapro_dout_hsi0_usi2", "zumapro_gout_hsi0_usi2_source",
 	      0x181c, 0, 4, 0, 0),
+	DIV_F(CLK_DOUT_HSI0_USI3, "zumapro_dout_hsi0_usi3", "zumapro_gout_hsi0_usi3_source",
+	      0x1820, 0, 4, 0, 0),
 };
 
 static const struct samsung_gate_clock hsi0_gates[] __initconst = {
@@ -643,6 +649,13 @@ static const struct samsung_gate_clock hsi0_gates[] __initconst = {
 	     0x20fc, 21, CLK_IGNORE_UNUSED | CLK_SET_RATE_PARENT, 0),
 	GATE(CLK_GOUT_HSI0_USI2_PCLK, "zumapro_gout_hsi0_usi2_pclk", "zumapro_mout_hsi0_noc_local",
 	     0x2100, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_HSI0_USI3_SOURCE, "zumapro_gout_hsi0_usi3_source",
+	     "zumapro_mout_hsi0_usi3_local",
+	     0x2124, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_HSI0_USI3_IP, "zumapro_gout_hsi0_usi3_ip", "zumapro_dout_hsi0_usi3",
+	     0x2104, 21, CLK_IGNORE_UNUSED | CLK_SET_RATE_PARENT, 0),
+	GATE(CLK_GOUT_HSI0_USI3_PCLK, "zumapro_gout_hsi0_usi3_pclk", "zumapro_mout_hsi0_noc_local",
+	     0x2108, 21, CLK_IGNORE_UNUSED, 0),
 };
 
 /*
@@ -671,8 +684,10 @@ static const struct samsung_gate_clock hsi0_ro_gates[] __initconst = {
 	     0x20e4, 21, CLK_IGNORE_UNUSED, 0),
 };
 
-/* Same USI2 manual-mode operations qualified with the SPI20 touch path. */
-static const unsigned long hsi0_regs[] __initconst = { 0x2120, 0x20fc, 0x2100 };
+/* USI2 (SPI20, touchscreen) and USI3 (SPI21, GNSS) run in manual mode. */
+static const unsigned long hsi0_regs[] __initconst = {
+	0x2120, 0x20fc, 0x2100, 0x2124, 0x2104, 0x2108,
+};
 
 static const struct samsung_cmu_info hsi0_cmu __initconst = {
 	.pll_clks = hsi0_plls,
@@ -685,7 +700,7 @@ static const struct samsung_cmu_info hsi0_cmu __initconst = {
 	.nr_gate_clks = ARRAY_SIZE(hsi0_gates),
 	.ro_gate_clks = hsi0_ro_gates,
 	.nr_ro_gate_clks = ARRAY_SIZE(hsi0_ro_gates),
-	.nr_clk_ids = CLK_GOUT_HSI0_USB_SUSPEND + 1,
+	.nr_clk_ids = CLK_GOUT_HSI0_USI3_PCLK + 1,
 	.clk_regs = hsi0_regs,
 	.nr_clk_regs = ARRAY_SIZE(hsi0_regs),
 	.clk_name = "bus",
