@@ -15,6 +15,8 @@ description: |
   CMU_MISC supplies the firmware-owned watchdog bus clock paths.
   CMU_HSI0 supplies the USB, eUSB2 PHY and touchscreen USI2 clocks; its
   ALT and TCXO inputs are board-level fixed clocks.
+  CMU_G3D supplies the GPU's core, coregroup and stacks clocks from its two
+  PLLs and CMU_TOP's G3D NoC, global and switch clocks.
   The external oscillator supplies the PLL reference and oscillator mux
   paths.
   Clock identifiers are defined in dt-bindings/clock/google,zumapro.h.
@@ -23,6 +25,7 @@ properties:
   compatible:
     enum:
       - google,zumapro-cmu-top
+      - google,zumapro-cmu-g3d
       - google,zumapro-cmu-hsi0
       - google,zumapro-cmu-hsi2
       - google,zumapro-cmu-peric0
@@ -88,6 +91,24 @@ allOf:
     else:
       properties:
         power-domains: false
+  - if:
+      properties:
+        compatible:
+          const: google,zumapro-cmu-g3d
+    then:
+      properties:
+        clocks:
+          items:
+            - description: External oscillator reference clock
+            - description: G3D NoC clock from CMU_TOP
+            - description: G3D global clock from CMU_TOP
+            - description: G3D switch clock from CMU_TOP
+        clock-names:
+          items:
+            - const: oscclk
+            - const: bus
+            - const: glb
+            - const: switch
   - if:
       properties:
         compatible:
@@ -171,5 +192,13 @@ examples:
         clocks = <&oscclk>, <&cmu_top CLK_DOUT_PERIC0_NOC>;
         clock-names = "oscclk", "bus";
     };
-...
 
+    clock-controller@1ee00000 {
+        compatible = "google,zumapro-cmu-g3d";
+        reg = <0x1ee00000 0x8000>;
+        #clock-cells = <1>;
+        clocks = <&oscclk>, <&cmu_top CLK_DOUT_G3D_NOCD>,
+                 <&cmu_top CLK_DOUT_G3D_GLB>, <&cmu_top CLK_DOUT_G3D_SWITCH>;
+        clock-names = "oscclk", "bus", "glb", "switch";
+    };
+...
