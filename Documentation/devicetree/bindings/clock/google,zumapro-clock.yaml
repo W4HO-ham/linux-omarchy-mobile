@@ -17,6 +17,8 @@ description: |
   ALT and TCXO inputs are board-level fixed clocks.
   CMU_G3D supplies the GPU's core, coregroup and stacks clocks from its two
   PLLs and CMU_TOP's G3D NoC, global and switch clocks.
+  CMU_HSI1 supplies the HSI1 GPIO bank's clock; its ALT input is a
+  board-level fixed clock.
   The external oscillator supplies the PLL reference and oscillator mux
   paths.
   Clock identifiers are defined in dt-bindings/clock/google,zumapro.h.
@@ -27,6 +29,7 @@ properties:
       - google,zumapro-cmu-top
       - google,zumapro-cmu-g3d
       - google,zumapro-cmu-hsi0
+      - google,zumapro-cmu-hsi1
       - google,zumapro-cmu-hsi2
       - google,zumapro-cmu-peric0
       - google,zumapro-cmu-misc
@@ -88,7 +91,30 @@ allOf:
             - const: peri
             - const: alt
             - const: tcxo
-    else:
+  - if:
+      properties:
+        compatible:
+          const: google,zumapro-cmu-hsi1
+    then:
+      properties:
+        clocks:
+          items:
+            - description: External oscillator reference clock
+            - description: HSI1 NoC clock from CMU_TOP
+            - description: HSI1 ALT input clock
+        clock-names:
+          items:
+            - const: oscclk
+            - const: bus
+            - const: alt
+  - if:
+      properties:
+        compatible:
+          not:
+            enum:
+              - google,zumapro-cmu-hsi0
+              - google,zumapro-cmu-hsi1
+    then:
       properties:
         power-domains: false
   - if:
@@ -191,6 +217,14 @@ examples:
         #clock-cells = <1>;
         clocks = <&oscclk>, <&cmu_top CLK_DOUT_PERIC0_NOC>;
         clock-names = "oscclk", "bus";
+    };
+
+    clock-controller@12000000 {
+        compatible = "google,zumapro-cmu-hsi1";
+        reg = <0x12000000 0x8000>;
+        #clock-cells = <1>;
+        clocks = <&oscclk>, <&cmu_top CLK_DOUT_HSI1_NOC>, <&hsi1_alt>;
+        clock-names = "oscclk", "bus", "alt";
     };
 
     clock-controller@1ee00000 {
