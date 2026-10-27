@@ -11389,7 +11389,16 @@ initialized:
 	async_schedule(ufshcd_async_scan, hba);
 
 	device_enable_async_suspend(dev);
-	ufshcd_pm_qos_init(hba);
+	/*
+	 * The request is 0 whenever the host clocks are on. A host that
+	 * neither scales nor gates its clocks, nor runtime suspends, keeps
+	 * them on from here to system suspend, so the request would hold
+	 * every CPU in its shallowest idle state all that time. Leave it off
+	 * there; pm_qos_enable can still turn it on.
+	 */
+	if (ufshcd_is_clkscaling_supported(hba) || ufshcd_is_clkgating_allowed(hba) ||
+	    ufshcd_is_rpm_autosuspend_allowed(hba))
+		ufshcd_pm_qos_init(hba);
 	return 0;
 
 out_disable:
