@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/power/supply/maxim,max77779-charger.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Maxim MAX77779 battery charger
+
+maintainers:
+  - W4HO <87742609+W4HO-ham@users.noreply.github.com>
+
+description:
+  The switching charger of the Maxim MAX77779 power management IC, on the
+  same I2C bus as its fuel gauge. It charges the battery from USB and
+  powers the system from it. The MAX77779's charger, fuel gauge and Type-C
+  controller answer at their own I2C addresses with their own register
+  maps, so each is described as its own I2C device rather than as a cell
+  of one multi-function device.
+
+allOf:
+  - $ref: power-supply.yaml#
+
+properties:
+  compatible:
+    const: maxim,max77779-charger
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+    description: The charger's interrupt, through the PMIC's interrupt
+      controller.
+
+required:
+  - compatible
+  - reg
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        charger: charger@69 {
+            compatible = "maxim,max77779-charger";
+            reg = <0x69>;
+        };
+
+        fuel-gauge@36 {
+            compatible = "maxim,max77779-fg";
+            reg = <0x36>;
+            shunt-resistor-micro-ohms = <2000>;
+            power-supplies = <&charger>;
+        };
+    };
