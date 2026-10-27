@@ -13,6 +13,8 @@
 
 #define PMU_TABLE_END	(-1U)
 
+struct device;
+struct regmap;
 struct regmap_access_table;
 
 struct exynos_pmu_conf {
@@ -52,6 +54,8 @@ struct exynos_pmu_data {
 	bool pmu_cpuhp;
 
 	void (*pmu_init)(void);
+	/* run at probe with the PMU's regmap, before CPU hotplug and idle */
+	void (*pmu_regmap_init)(struct device *dev, struct regmap *regmap);
 	void (*powerdown_conf)(enum sys_powerdown);
 	void (*powerdown_conf_extra)(enum sys_powerdown);
 

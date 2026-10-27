@@ -528,6 +528,10 @@ static int exynos_pmu_probe(struct platform_device *pdev)
 
 	pmu_context->pmureg = regmap;
 	pmu_context->dev = dev;
+
+	if (pmu_context->pmu_data && pmu_context->pmu_data->pmu_regmap_init)
+		pmu_context->pmu_data->pmu_regmap_init(dev, regmap);
+
 	raw_spin_lock_init(&pmu_context->cpupm_lock);
 	pmu_context->sys_inreboot = false;
 	pmu_context->sys_insuspend = false;

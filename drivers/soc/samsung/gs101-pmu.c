@@ -7,6 +7,7 @@
 
 #include <linux/arm-smccc.h>
 #include <linux/array_size.h>
+#include <linux/device.h>
 #include <linux/soc/samsung/exynos-pmu.h>
 #include <linux/soc/samsung/exynos-regs-pmu.h>
 #include <linux/regmap.h>
@@ -335,6 +336,7 @@ const struct exynos_pmu_data gs101_pmu_data = {
  * (as the regmap's debugfs would do) is not known to be safe. Any other offset
  * fails with -EIO, so a new user of this regmap must add its registers here.
  */
+#define ZUMA_PMU_INFORM0		0x0800
 #define ZUMA_CLUSTER0_NONCPU_OUT	0x1220
 #define ZUMA_CLUSTER0_NONCPU_INT_EN	0x1244
 #define ZUMA_CLUSTER1_NONCPU_OUT	0x1520
@@ -356,6 +358,8 @@ static const struct regmap_range zuma_pmu_registers[] = {
 	/* PHY isolation */
 	regmap_reg_range(GS101_PHY_CTRL_USB20, GS101_PHY_CTRL_USB20),
 	regmap_reg_range(ZUMA_PHY_CTRL_UFS, ZUMA_PHY_CTRL_UFS),
+	/* a hint TF-A reads, not a status register: see zuma_pmu_regmap_init() */
+	regmap_reg_range(ZUMA_PMU_INFORM0, ZUMA_PMU_INFORM0),
 };
 
 static const struct regmap_range zuma_pmu_ro_registers[] = {
@@ -375,12 +379,29 @@ static const struct regmap_access_table zuma_pmu_wr_table = {
 	.n_no_ranges = ARRAY_SIZE(zuma_pmu_ro_registers),
 };
 
+#define ZUMA_PMU_ALLOWED_C2		1
+
+/*
+ * zuma's TF-A refuses core power-down (PSCI CPU_SUSPEND returns
+ * INVALID_PARAMETERS) until the kernel allows C2 in PMU_INFORM0, as Google's
+ * exynos-cpupm does once at init.
+ */
+static void zuma_pmu_regmap_init(struct device *dev, struct regmap *regmap)
+{
+	int ret;
+
+	ret = regmap_write(regmap, ZUMA_PMU_INFORM0, ZUMA_PMU_ALLOWED_C2);
+	if (ret)
+		dev_warn(dev, "failed to allow C2 in PMU_INFORM0: %d\n", ret);
+}
+
 /*
  * zuma's PMU is written through the same EL3 call, but its CPU layout differs
  * from gs101's, so no CPU hotplug hooks yet.
  */
 const struct exynos_pmu_data zuma_pmu_data = {
 	.pmu_secure = true,
+	.pmu_regmap_init = zuma_pmu_regmap_init,
 	.rd_table = &zuma_pmu_rd_table,
 	.wr_table = &zuma_pmu_wr_table,
 };
