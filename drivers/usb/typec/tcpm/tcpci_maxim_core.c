@@ -9,6 +9,7 @@
 #include <linux/i2c.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/property.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 #include <linux/usb/pd.h>
@@ -399,7 +400,8 @@ static irqreturn_t _max_tcpci_irq(struct max_tcpci_chip *chip, u16 status)
 	if (status & TCPC_ALERT_CC_STATUS) {
 		bool cc_handled = false;
 
-		if (chip->contaminant_state == DETECTED || tcpm_port_is_toggling(chip->port)) {
+		if (chip->variant->contaminant &&
+		    (chip->contaminant_state == DETECTED || tcpm_port_is_toggling(chip->port))) {
 			if (!max_contaminant_is_contaminant(chip, false, &cc_handled))
 				tcpm_port_clean(chip->port);
 		}
@@ -505,6 +507,20 @@ static void max_tcpci_unregister_tcpci_port(void *tcpci)
 	tcpci_unregister_port(tcpci);
 }
 
+static const struct max_tcpci_variant max33359_variant = {
+	.contaminant = true,
+};
+
+/*
+ * The MAX77779's TCPC (Pixel 9a) is the MAX77759's with a few vendor
+ * registers moved: its ADC status at 0x89 is a SAR ADC, not the FLADC the
+ * contaminant detection reads, and CCOVPDIS is bit 7 of CC_CTRL2. Until
+ * that detection is ported, it runs without it.
+ */
+static const struct max_tcpci_variant max77779_variant = {
+	.contaminant = false,
+};
+
 static int max_tcpci_probe(struct i2c_client *client)
 {
 	int ret;
@@ -516,6 +532,9 @@ static int max_tcpci_probe(struct i2c_client *client)
 		return -ENOMEM;
 
 	chip->client = client;
+	chip->variant = device_get_match_data(&client->dev);
+	if (!chip->variant)
+		chip->variant = &max33359_variant;
 	chip->data.regmap = devm_regmap_init_i2c(client, &max_tcpci_regmap_config);
 	if (IS_ERR(chip->data.regmap))
 		return dev_err_probe(&client->dev, PTR_ERR(chip->data.regmap),
@@ -539,7 +558,8 @@ static int max_tcpci_probe(struct i2c_client *client)
 	chip->data.vbus_vsafe0v = true;
 	chip->data.set_partner_usb_comm_capable = max_tcpci_set_partner_usb_comm_capable;
 	chip->data.set_roles = max_tcpci_set_roles;
-	chip->data.check_contaminant = max_tcpci_check_contaminant;
+	if (chip->variant->contaminant)
+		chip->data.check_contaminant = max_tcpci_check_contaminant;
 	chip->data.cable_comm_capable = true;
 	chip->data.attempt_vconn_swap_discovery = max_tcpci_attempt_vconn_swap_discovery;
 
@@ -604,7 +624,8 @@ static const struct i2c_device_id max_tcpci_id[] = {
 MODULE_DEVICE_TABLE(i2c, max_tcpci_id);
 
 static const struct of_device_id max_tcpci_of_match[] = {
-	{ .compatible = "maxim,max33359", },
+	{ .compatible = "maxim,max33359", .data = &max33359_variant },
+	{ .compatible = "maxim,max77779-tcpc", .data = &max77779_variant },
 	{},
 };
 MODULE_DEVICE_TABLE(of, max_tcpci_of_match);

@@ -52,6 +52,11 @@ enum contamiant_state {
  *		Last returned result to tcpm indicating whether the TCPM port
  *		has potential contaminant.
  */
+/* What differs between the TCPCs this driver handles */
+struct max_tcpci_variant {
+	bool contaminant;	/* the FLADC-based contaminant detection */
+};
+
 struct max_tcpci_chip {
 	struct tcpci_data data;
 	struct tcpci *tcpci;
@@ -61,6 +66,7 @@ struct max_tcpci_chip {
 	enum contamiant_state contaminant_state;
 	bool veto_vconn_swap;
 	struct regulator *vbus_reg;
+	const struct max_tcpci_variant *variant;
 };
 
 static inline int max_tcpci_read16(struct max_tcpci_chip *chip, unsigned int reg, u16 *val)
