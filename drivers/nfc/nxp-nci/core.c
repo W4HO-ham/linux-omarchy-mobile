@@ -28,8 +28,46 @@
 			       NFC_PROTO_ISO15693_MASK | \
 			       NFC_PROTO_NFC_DEP_MASK)
 
+/*
+ * Some NCI controllers (the ST54L on the Pixel 9a) poll a few times after
+ * RF_DISCOVER and then wait in a low-power card detection mode that never
+ * notices a card. Restarting discovery every rediscover_ms keeps them
+ * polling. 0 (the default) leaves discovery alone.
+ */
+static unsigned int rediscover_ms;
+module_param(rediscover_ms, uint, 0644);
+MODULE_PARM_DESC(rediscover_ms, "Restart an idle discovery this often (ms), 0 never");
+
 #define NXP_NCI_RF_PLL_UNLOCKED_NTF nci_opcode_pack(NCI_GID_RF_MGMT, 0x21)
 #define NXP_NCI_RF_TXLDO_ERROR_NTF nci_opcode_pack(NCI_GID_RF_MGMT, 0x23)
+
+static void nxp_nci_rediscover_work(struct work_struct *work)
+{
+	struct nxp_nci_info *info = container_of(to_delayed_work(work),
+						 struct nxp_nci_info,
+						 rediscover_work);
+	struct nci_dev *ndev = info->ndev;
+	struct nfc_dev *nfc = ndev->nfc_dev;
+	unsigned int ms = READ_ONCE(rediscover_ms);
+	__u32 prots;
+
+	if (!ms || READ_ONCE(info->mode) != NXP_NCI_MODE_NCI)
+		return;
+
+	/* the NFC core's order: the device lock, then the NCI request lock */
+	device_lock(&nfc->dev);
+	if (nfc->polling && !ndev->target_active_prot &&
+	    atomic_read(&ndev->state) == NCI_DISCOVERY && ndev->poll_prots) {
+		prots = ndev->poll_prots;
+		nfc->ops->stop_poll(nfc);
+		if (nfc->ops->start_poll(nfc, prots, 0))
+			dev_dbg(info->pdev, "rediscover: restart failed\n");
+	}
+	device_unlock(&nfc->dev);
+
+	if (READ_ONCE(info->mode) == NXP_NCI_MODE_NCI)
+		schedule_delayed_work(&info->rediscover_work, msecs_to_jiffies(ms));
+}
 
 static int nxp_nci_open(struct nci_dev *ndev)
 {
@@ -47,6 +85,9 @@ static int nxp_nci_open(struct nci_dev *ndev)
 		r = info->phy_ops->set_mode(info->phy_id, NXP_NCI_MODE_NCI);
 
 	info->mode = NXP_NCI_MODE_NCI;
+	if (rediscover_ms)
+		schedule_delayed_work(&info->rediscover_work,
+				      msecs_to_jiffies(rediscover_ms));
 
 open_exit:
 	mutex_unlock(&info->info_lock);
@@ -64,6 +105,11 @@ static int nxp_nci_close(struct nci_dev *ndev)
 		r = info->phy_ops->set_mode(info->phy_id, NXP_NCI_MODE_COLD);
 
 	info->mode = NXP_NCI_MODE_COLD;
+	/*
+	 * Not the _sync variant: the NCI core holds its request lock here, and
+	 * the work takes it. A late run finds the device down and stops.
+	 */
+	cancel_delayed_work(&info->rediscover_work);
 
 	mutex_unlock(&info->info_lock);
 	return r;
@@ -149,6 +195,7 @@ int nxp_nci_probe(void *phy_id, struct device *pdev,
 	info->phy_ops = phy_ops;
 	info->max_payload = max_payload;
 	INIT_WORK(&info->fw_info.work, nxp_nci_fw_work);
+	INIT_DELAYED_WORK(&info->rediscover_work, nxp_nci_rediscover_work);
 	init_completion(&info->fw_info.cmd_completion);
 	mutex_init(&info->info_lock);
 
@@ -197,6 +244,7 @@ void nxp_nci_remove(struct nci_dev *ndev)
 		info->phy_ops->set_mode(info->phy_id, NXP_NCI_MODE_COLD);
 	mutex_unlock(&info->info_lock);
 
+	cancel_delayed_work_sync(&info->rediscover_work);
 	nci_free_device(ndev);
 }
 EXPORT_SYMBOL(nxp_nci_remove);

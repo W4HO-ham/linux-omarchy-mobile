@@ -62,6 +62,8 @@ struct nxp_nci_info {
 	struct mutex info_lock;
 
 	struct nxp_nci_fw_info fw_info;
+
+	struct delayed_work rediscover_work;
 };
 
 int nxp_nci_fw_download(struct nci_dev *ndev, const char *firmware_name);
