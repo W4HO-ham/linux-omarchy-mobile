@@ -13,6 +13,7 @@
 #include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/nfc.h>
+#include <linux/property.h>
 
 #include <net/nfc/nci_core.h>
 
@@ -123,11 +124,36 @@ static const struct nci_driver_ops nxp_nci_core_ops[] = {
 	},
 };
 
+/*
+ * The ST54L speaks the same plain NCI over I2C, but finds no card until it
+ * gets the configuration ST's HAL sends after init: its proprietary 0xa1
+ * (0x1e), 0xa2 (0x19) and 0x80 (0x01), and TOTAL_DURATION 500 ms. Without
+ * it the controller polls and never reports a target.
+ */
+static int nxp_nci_post_setup(struct nci_dev *ndev)
+{
+	static const u8 st54l_conf[] = {
+		0x04,			/* number of parameters */
+		0xa1, 0x01, 0x1e,
+		0xa2, 0x01, 0x19,
+		0x80, 0x01, 0x01,
+		0x00, 0x02, 0xf4, 0x01,	/* TOTAL_DURATION: 500 ms */
+	};
+	struct nxp_nci_info *info = nci_get_drvdata(ndev);
+
+	if (!info->st54l)
+		return 0;
+
+	return nci_core_cmd(ndev, NCI_OP_CORE_SET_CONFIG_CMD,
+			    sizeof(st54l_conf), st54l_conf);
+}
+
 static const struct nci_ops nxp_nci_ops = {
 	.open = nxp_nci_open,
 	.close = nxp_nci_close,
 	.send = nxp_nci_send,
 	.fw_download = nxp_nci_fw_download,
+	.post_setup = nxp_nci_post_setup,
 	.core_ops = nxp_nci_core_ops,
 	.n_core_ops = ARRAY_SIZE(nxp_nci_core_ops),
 };
@@ -148,6 +174,7 @@ int nxp_nci_probe(void *phy_id, struct device *pdev,
 	info->pdev = pdev;
 	info->phy_ops = phy_ops;
 	info->max_payload = max_payload;
+	info->st54l = device_is_compatible(pdev, "st,st54l");
 	INIT_WORK(&info->fw_info.work, nxp_nci_fw_work);
 	init_completion(&info->fw_info.cmd_completion);
 	mutex_init(&info->info_lock);

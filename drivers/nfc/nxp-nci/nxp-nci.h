@@ -62,6 +62,9 @@ struct nxp_nci_info {
 	struct mutex info_lock;
 
 	struct nxp_nci_fw_info fw_info;
+
+	/* an ST ST54L: needs its configuration after init */
+	bool st54l;
 };
 
 int nxp_nci_fw_download(struct nci_dev *ndev, const char *firmware_name);
