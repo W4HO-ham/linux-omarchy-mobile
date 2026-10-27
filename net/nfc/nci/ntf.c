@@ -1001,10 +1001,14 @@ void nci_ntf_packet(struct nci_dev *ndev, struct sk_buff *skb)
 	skb_pull(skb, NCI_CTRL_HDR_SIZE);
 
 	if (nci_opcode_gid(ntf_opcode) == NCI_GID_PROPRIETARY) {
-		if (nci_prop_ntf_packet(ndev, ntf_opcode, skb) == -ENOTSUPP) {
-			pr_err("unsupported ntf opcode 0x%x\n",
-			       ntf_opcode);
-		}
+		/*
+		 * Proprietary notifications are the controller vendor's own:
+		 * one the driver has no handler for is ignored, not an error.
+		 * Some controllers send them on every discovery cycle.
+		 */
+		if (nci_prop_ntf_packet(ndev, ntf_opcode, skb) == -ENOTSUPP)
+			pr_debug("unhandled proprietary ntf opcode 0x%x\n",
+				 ntf_opcode);
 
 		goto end;
 	}
