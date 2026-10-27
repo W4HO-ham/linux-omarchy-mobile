@@ -103,6 +103,8 @@ static const struct samsung_mux_clock top_muxes[] __initconst = {
 	      0x10f8, 0, 2, 0, CLK_MUX_READ_ONLY),
 	MUX_F(CLK_MOUT_PERIC1_IP, "zumapro_mout_peric1_ip", peric0_noc_parents,
 	      0x10f4, 0, 2, 0, CLK_MUX_READ_ONLY),
+	MUX_F(CLK_MOUT_PERIC0_IP, "zumapro_mout_peric0_ip", peric0_noc_parents,
+	      0x10ec, 0, 2, 0, CLK_MUX_READ_ONLY),
 };
 
 /* The hardware order is mux -> gate -> divider. */
@@ -137,6 +139,8 @@ static const struct samsung_gate_clock top_ro_gates[] __initconst = {
 	     "zumapro_mout_peric1_noc", 0x211c, 21, CLK_IGNORE_UNUSED, 0),
 	GATE(CLK_GOUT_PERIC1_IP, "zumapro_gout_peric1_ip", "zumapro_mout_peric1_ip",
 	     0x2118, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_PERIC0_IP, "zumapro_gout_peric0_ip", "zumapro_mout_peric0_ip",
+	     0x2110, 21, CLK_IGNORE_UNUSED, 0),
 };
 
 static const struct samsung_div_clock top_dividers[] __initconst = {
@@ -166,6 +170,8 @@ static const struct samsung_div_clock top_dividers[] __initconst = {
 	      "zumapro_gout_peric1_noc", 0x18f0, 0, 4, 0, CLK_DIVIDER_READ_ONLY),
 	DIV_F(CLK_DOUT_PERIC1_IP, "zumapro_dout_peric1_ip", "zumapro_gout_peric1_ip",
 	      0x18ec, 0, 4, 0, CLK_DIVIDER_READ_ONLY),
+	DIV_F(CLK_DOUT_PERIC0_IP, "zumapro_dout_peric0_ip", "zumapro_gout_peric0_ip",
+	      0x18e4, 0, 4, 0, CLK_DIVIDER_READ_ONLY),
 };
 
 /* Only these branch gates are put under manual CCF control. */
@@ -186,7 +192,7 @@ static const struct samsung_cmu_info top_cmu __initconst = {
 	.nr_ro_gate_clks = ARRAY_SIZE(top_ro_gates),
 	.div_clks = top_dividers,
 	.nr_div_clks = ARRAY_SIZE(top_dividers),
-	.nr_clk_ids = CLK_DOUT_PERIC1_IP + 1,
+	.nr_clk_ids = CLK_DOUT_PERIC0_IP + 1,
 	.clk_regs = top_regs,
 	.nr_clk_regs = ARRAY_SIZE(top_regs),
 };
@@ -634,12 +640,41 @@ static const struct samsung_cmu_info hsi0_cmu __initconst = {
 	.clk_name = "bus",
 };
 
-/* CMU_PERIC0, 0x10800000. Only the UFS VCC GPIO clock is controlled. */
+/*
+ * CMU_PERIC0, 0x10800000. Only the UFS VCC GPIO clock is controlled. USI2
+ * to USI6 (the cameras', the camera power chips' and the battery's I2C
+ * buses) are firmware-owned: their user muxes and dividers are read-only,
+ * their gates read-only gates, fed by CMU_TOP's PERIC0 IP clock.
+ */
 PNAME(peric0_noc_user_parents) = { "oscclk", "zumapro_dout_peric0_noc" };
+PNAME(mout_peric0_usi_user_parents) = { "oscclk", "zumapro_dout_peric0_ip" };
 
 static const struct samsung_mux_clock peric0_muxes[] __initconst = {
 	MUX_F(CLK_MOUT_PERIC0_NOC_USER, "zumapro_peric0_noc_user",
 	      peric0_noc_user_parents, 0x600, 4, 1, 0, CLK_MUX_READ_ONLY),
+	MUX_F(CLK_MOUT_PERIC0_USI2_USER, "zumapro_mout_peric0_usi2_user",
+	      mout_peric0_usi_user_parents, 0x660, 4, 1, 0, CLK_MUX_READ_ONLY),
+	MUX_F(CLK_MOUT_PERIC0_USI3_USER, "zumapro_mout_peric0_usi3_user",
+	      mout_peric0_usi_user_parents, 0x670, 4, 1, 0, CLK_MUX_READ_ONLY),
+	MUX_F(CLK_MOUT_PERIC0_USI4_USER, "zumapro_mout_peric0_usi4_user",
+	      mout_peric0_usi_user_parents, 0x680, 4, 1, 0, CLK_MUX_READ_ONLY),
+	MUX_F(CLK_MOUT_PERIC0_USI5_USER, "zumapro_mout_peric0_usi5_user",
+	      mout_peric0_usi_user_parents, 0x690, 4, 1, 0, CLK_MUX_READ_ONLY),
+	MUX_F(CLK_MOUT_PERIC0_USI6_USER, "zumapro_mout_peric0_usi6_user",
+	      mout_peric0_usi_user_parents, 0x6a0, 4, 1, 0, CLK_MUX_READ_ONLY),
+};
+
+static const struct samsung_div_clock peric0_dividers[] __initconst = {
+	DIV_F(CLK_DOUT_PERIC0_USI2, "zumapro_dout_peric0_usi2",
+	      "zumapro_mout_peric0_usi2_user", 0x1814, 0, 4, 0, CLK_DIVIDER_READ_ONLY),
+	DIV_F(CLK_DOUT_PERIC0_USI3, "zumapro_dout_peric0_usi3",
+	      "zumapro_mout_peric0_usi3_user", 0x1818, 0, 4, 0, CLK_DIVIDER_READ_ONLY),
+	DIV_F(CLK_DOUT_PERIC0_USI4, "zumapro_dout_peric0_usi4",
+	      "zumapro_mout_peric0_usi4_user", 0x181c, 0, 4, 0, CLK_DIVIDER_READ_ONLY),
+	DIV_F(CLK_DOUT_PERIC0_USI5, "zumapro_dout_peric0_usi5",
+	      "zumapro_mout_peric0_usi5_user", 0x1820, 0, 4, 0, CLK_DIVIDER_READ_ONLY),
+	DIV_F(CLK_DOUT_PERIC0_USI6, "zumapro_dout_peric0_usi6",
+	      "zumapro_mout_peric0_usi6_user", 0x1824, 0, 4, 0, CLK_DIVIDER_READ_ONLY),
 };
 
 static const struct samsung_gate_clock peric0_gates[] __initconst = {
@@ -647,14 +682,53 @@ static const struct samsung_gate_clock peric0_gates[] __initconst = {
 	     0x20b8, 21, CLK_IGNORE_UNUSED, 0),
 };
 
+static const struct samsung_gate_clock peric0_ro_gates[] __initconst = {
+	GATE(CLK_GOUT_PERIC0_USI2_IPCLK, "zumapro_gout_peric0_usi2_ipclk",
+	     "zumapro_dout_peric0_usi2", 0x2078, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_PERIC0_USI2_PCLK, "zumapro_gout_peric0_usi2_pclk",
+	     "zumapro_peric0_noc_user", 0x207c, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_PERIC0_USI2_RSTNSYNC, "zumapro_gout_peric0_usi2_rstnsync",
+	     "zumapro_dout_peric0_usi2", 0x20d4, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_PERIC0_USI3_IPCLK, "zumapro_gout_peric0_usi3_ipclk",
+	     "zumapro_dout_peric0_usi3", 0x2080, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_PERIC0_USI3_PCLK, "zumapro_gout_peric0_usi3_pclk",
+	     "zumapro_peric0_noc_user", 0x2084, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_PERIC0_USI3_RSTNSYNC, "zumapro_gout_peric0_usi3_rstnsync",
+	     "zumapro_dout_peric0_usi3", 0x20d8, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_PERIC0_USI4_IPCLK, "zumapro_gout_peric0_usi4_ipclk",
+	     "zumapro_dout_peric0_usi4", 0x2088, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_PERIC0_USI4_PCLK, "zumapro_gout_peric0_usi4_pclk",
+	     "zumapro_peric0_noc_user", 0x208c, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_PERIC0_USI4_RSTNSYNC, "zumapro_gout_peric0_usi4_rstnsync",
+	     "zumapro_dout_peric0_usi4", 0x20dc, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_PERIC0_USI5_IPCLK, "zumapro_gout_peric0_usi5_ipclk",
+	     "zumapro_dout_peric0_usi5", 0x2090, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_PERIC0_USI5_PCLK, "zumapro_gout_peric0_usi5_pclk",
+	     "zumapro_peric0_noc_user", 0x2094, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_PERIC0_USI5_RSTNSYNC, "zumapro_gout_peric0_usi5_rstnsync",
+	     "zumapro_dout_peric0_usi5", 0x20e0, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_PERIC0_USI6_IPCLK, "zumapro_gout_peric0_usi6_ipclk",
+	     "zumapro_dout_peric0_usi6", 0x2098, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_PERIC0_USI6_PCLK, "zumapro_gout_peric0_usi6_pclk",
+	     "zumapro_peric0_noc_user", 0x209c, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_PERIC0_USI6_RSTNSYNC, "zumapro_gout_peric0_usi6_rstnsync",
+	     "zumapro_dout_peric0_usi6", 0x20e4, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_PERIC0_SYSREG, "zumapro_gout_peric0_sysreg",
+	     "zumapro_peric0_noc_user", 0x20f0, 21, CLK_IGNORE_UNUSED, 0),
+};
+
 static const unsigned long peric0_regs[] __initconst = { 0x20b8 };
 
 static const struct samsung_cmu_info peric0_cmu __initconst = {
 	.mux_clks = peric0_muxes,
 	.nr_mux_clks = ARRAY_SIZE(peric0_muxes),
+	.div_clks = peric0_dividers,
+	.nr_div_clks = ARRAY_SIZE(peric0_dividers),
 	.gate_clks = peric0_gates,
 	.nr_gate_clks = ARRAY_SIZE(peric0_gates),
-	.nr_clk_ids = CLK_GOUT_GPIO_PERIC0 + 1,
+	.ro_gate_clks = peric0_ro_gates,
+	.nr_ro_gate_clks = ARRAY_SIZE(peric0_ro_gates),
+	.nr_clk_ids = CLK_GOUT_PERIC0_SYSREG + 1,
 	.clk_regs = peric0_regs,
 	.nr_clk_regs = ARRAY_SIZE(peric0_regs),
 	.clk_name = "bus",
