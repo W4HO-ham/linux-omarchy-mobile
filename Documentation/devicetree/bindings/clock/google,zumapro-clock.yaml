@@ -13,6 +13,8 @@ description: |
   CMU_TOP supplies the NoC and UFS clock paths to CMU_HSI2 and the supply-GPIO
   path in CMU_PERIC0. CMU_TOP also provides the HSI0 parent rate paths.
   CMU_MISC supplies the firmware-owned watchdog bus clock paths.
+  CMU_HSI0 supplies the USB, eUSB2 PHY and touchscreen USI2 clocks; its
+  ALT and TCXO inputs are board-level fixed clocks.
   The external oscillator supplies the PLL reference and oscillator mux
   paths.
   Clock identifiers are defined in dt-bindings/clock/google,zumapro.h.
@@ -21,6 +23,7 @@ properties:
   compatible:
     enum:
       - google,zumapro-cmu-top
+      - google,zumapro-cmu-hsi0
       - google,zumapro-cmu-hsi2
       - google,zumapro-cmu-peric0
       - google,zumapro-cmu-misc
@@ -33,11 +36,14 @@ properties:
 
   clocks:
     minItems: 1
-    maxItems: 4
+    maxItems: 5
 
   clock-names:
     minItems: 1
-    maxItems: 4
+    maxItems: 5
+
+  power-domains:
+    maxItems: 1
 
 required:
   - compatible
@@ -59,6 +65,29 @@ allOf:
         clock-names:
           items:
             - const: oscclk
+  - if:
+      properties:
+        compatible:
+          const: google,zumapro-cmu-hsi0
+    then:
+      properties:
+        clocks:
+          items:
+            - description: External oscillator reference clock
+            - description: HSI0 NoC clock from CMU_TOP
+            - description: HSI0 peripheral clock from CMU_TOP
+            - description: HSI0 ALT input clock
+            - description: HSI0 TCXO input clock
+        clock-names:
+          items:
+            - const: oscclk
+            - const: bus
+            - const: peri
+            - const: alt
+            - const: tcxo
+    else:
+      properties:
+        power-domains: false
   - if:
       properties:
         compatible:
@@ -106,6 +135,15 @@ examples:
         #clock-cells = <1>;
         clocks = <&oscclk>;
         clock-names = "oscclk";
+    };
+
+    clock-controller@11000000 {
+        compatible = "google,zumapro-cmu-hsi0";
+        reg = <0x11000000 0x8000>;
+        #clock-cells = <1>;
+        clocks = <&oscclk>, <&cmu_top CLK_DOUT_HSI0_NOC>,
+                 <&cmu_top CLK_DOUT_HSI0_PERI>, <&hsi0_alt>, <&hsi0_tcxo>;
+        clock-names = "oscclk", "bus", "peri", "alt", "tcxo";
     };
 
     clock-controller@13000000 {
