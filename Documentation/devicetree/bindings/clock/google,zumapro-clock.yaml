@@ -11,7 +11,9 @@ maintainers:
 
 description: |
   CMU_TOP supplies the NoC and UFS clock paths to CMU_HSI2 and the supply-GPIO
-  path in CMU_PERIC0. CMU_TOP also provides the HSI0 parent rate paths.
+  path in CMU_PERIC0. CMU_TOP also provides the HSI0 parent rate paths, the
+  four camera sensor master clocks (CIS_CLK0-3) and the camera front end's
+  NoC clock.
   CMU_MISC supplies the firmware-owned watchdog bus clock paths.
   CMU_PERIC0 supplies its GPIO bank and USI2-USI6 (the cameras' and the
   battery's I2C buses), the USIs from CMU_TOP's optional PERIC0 IP clock.
