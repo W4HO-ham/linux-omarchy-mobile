@@ -17,8 +17,8 @@ description: |
   CMU_MISC supplies the firmware-owned watchdog bus clock paths.
   CMU_PERIC0 supplies its GPIO bank and USI2-USI6 (the cameras' and the
   battery's I2C buses), the USIs from CMU_TOP's optional PERIC0 IP clock.
-  CMU_HSI0 supplies the USB, eUSB2 PHY and touchscreen USI2 clocks; its
-  ALT and TCXO inputs are board-level fixed clocks.
+  CMU_HSI0 supplies the USB, eUSB2 PHY, touchscreen USI2 and GNSS SPI USI3
+  clocks; its ALT and TCXO inputs are board-level fixed clocks.
   CMU_G3D supplies the GPU's core, coregroup and stacks clocks from its two
   PLLs and CMU_TOP's G3D NoC, global and switch clocks.
   CMU_HSI1 supplies the HSI1 GPIO bank's clock; its ALT input is a
