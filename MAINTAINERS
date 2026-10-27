@@ -8148,6 +8148,12 @@ T:	git https://gitlab.freedesktop.org/drm/misc/kernel.git
 F:	drivers/gpu/drm/gud/
 F:	include/drm/gud.h
 
+DRM DRIVER FOR GOOGLE TG4C PANELS
+M:	W4HO <87742609+W4HO-ham@users.noreply.github.com>
+S:	Maintained
+F:	Documentation/devicetree/bindings/display/panel/google,tg4c.yaml
+F:	drivers/gpu/drm/panel/panel-google-tg4c.c
+
 DRM DRIVER FOR GRAIN MEDIA GM12U320 PROJECTORS
 M:	Hans de Goede <hansg@kernel.org>
 S:	Maintained
