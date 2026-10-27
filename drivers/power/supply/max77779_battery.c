@@ -118,8 +118,13 @@ static int max77779_get_property(struct power_supply *supply,
 		value->intval = ((s16)reg * 10) / 256;
 		return 0;
 	case POWER_SUPPLY_PROP_STATUS:
-		/* The charger and external-power detection are separate devices. */
-		value->intval = POWER_SUPPLY_STATUS_UNKNOWN;
+		/*
+		 * The charger is a separate device: take its status when one
+		 * supplies this gauge, else report it as unknown.
+		 */
+		if (power_supply_get_property_from_supplier(supply, POWER_SUPPLY_PROP_STATUS,
+							    value))
+			value->intval = POWER_SUPPLY_STATUS_UNKNOWN;
 		return 0;
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
 		value->intval = POWER_SUPPLY_TECHNOLOGY_LION;
