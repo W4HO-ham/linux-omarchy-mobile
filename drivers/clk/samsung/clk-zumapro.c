@@ -97,6 +97,8 @@ static const struct samsung_mux_clock top_muxes[] __initconst = {
 	      0x1070, 0, 3, 0, CLK_MUX_READ_ONLY),
 	MUX_F(CLK_MOUT_G3D_SWITCH, "zumapro_mout_g3d_switch", g3d_switch_parents,
 	      0x1074, 0, 3, 0, CLK_MUX_READ_ONLY),
+	MUX_F(CLK_MOUT_HSI1_NOC, "zumapro_mout_hsi1_noc", hsi2_noc_parents,
+	      0x10a4, 0, 3, 0, CLK_MUX_READ_ONLY),
 };
 
 /* The hardware order is mux -> gate -> divider. */
@@ -125,6 +127,8 @@ static const struct samsung_gate_clock top_ro_gates[] __initconst = {
 	     0x2098, 21, CLK_IGNORE_UNUSED, 0),
 	GATE(CLK_GOUT_G3D_SWITCH, "zumapro_gout_g3d_switch",
 	     "zumapro_mout_g3d_switch", 0x209c, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_HSI1_NOC, "zumapro_gout_hsi1_noc", "zumapro_mout_hsi1_noc",
+	     0x20cc, 21, CLK_IGNORE_UNUSED, 0),
 };
 
 static const struct samsung_div_clock top_dividers[] __initconst = {
@@ -148,6 +152,8 @@ static const struct samsung_div_clock top_dividers[] __initconst = {
 	      0x1868, 0, 4, 0, CLK_DIVIDER_READ_ONLY),
 	DIV_F(CLK_DOUT_G3D_SWITCH, "zumapro_dout_g3d_switch",
 	      "zumapro_gout_g3d_switch", 0x186c, 0, 3, 0, CLK_DIVIDER_READ_ONLY),
+	DIV_F(CLK_DOUT_HSI1_NOC, "zumapro_dout_hsi1_noc", "zumapro_gout_hsi1_noc",
+	      0x189c, 0, 4, 0, CLK_DIVIDER_READ_ONLY),
 };
 
 /* Only these branch gates are put under manual CCF control. */
@@ -168,7 +174,7 @@ static const struct samsung_cmu_info top_cmu __initconst = {
 	.nr_ro_gate_clks = ARRAY_SIZE(top_ro_gates),
 	.div_clks = top_dividers,
 	.nr_div_clks = ARRAY_SIZE(top_dividers),
-	.nr_clk_ids = CLK_SHARED1_D3 + 1,
+	.nr_clk_ids = CLK_DOUT_HSI1_NOC + 1,
 	.clk_regs = top_regs,
 	.nr_clk_regs = ARRAY_SIZE(top_regs),
 };
@@ -354,6 +360,50 @@ static const struct samsung_cmu_info g3d_cmu __initconst = {
 	.clk_name = "bus",
 };
 
+/*
+ * CMU_HSI1. Firmware keeps the domain powered and owns its setup: the muxes
+ * and the ALT divider are read-only, the gates read-only gates. Only the
+ * GPIO bank's clock is described; the PCIe channel 0 clocks are not.
+ */
+PNAME(mout_hsi1_noc_user_parents) = { "oscclk", "zumapro_dout_hsi1_noc" };
+PNAME(mout_hsi1_alt_user_parents) = { "oscclk", "zumapro_dout_hsi1_alt" };
+PNAME(mout_hsi1_noc_local_parents) = { "zumapro_mout_hsi1_noc_user",
+				       "zumapro_mout_hsi1_alt_user" };
+
+static const struct samsung_mux_clock hsi1_muxes[] __initconst = {
+	MUX_F(CLK_MOUT_HSI1_NOC_USER, "zumapro_mout_hsi1_noc_user",
+	      mout_hsi1_noc_user_parents, 0x600, 4, 1, 0, CLK_MUX_READ_ONLY),
+	MUX_F(CLK_MOUT_HSI1_ALT_USER, "zumapro_mout_hsi1_alt_user",
+	      mout_hsi1_alt_user_parents, 0x620, 4, 1, 0, CLK_MUX_READ_ONLY),
+	MUX_F(CLK_MOUT_HSI1_NOC_LOCAL, "zumapro_mout_hsi1_noc_local",
+	      mout_hsi1_noc_local_parents, 0x1000, 0, 1, 0, CLK_MUX_READ_ONLY),
+};
+
+static const struct samsung_div_clock hsi1_dividers[] __initconst = {
+	DIV_F(CLK_DOUT_HSI1_ALT, "zumapro_dout_hsi1_alt", "zumapro_gout_hsi1_alt",
+	      0x1808, 0, 4, 0, CLK_DIVIDER_READ_ONLY),
+};
+
+static const struct samsung_gate_clock hsi1_ro_gates[] __initconst = {
+	GATE(CLK_GOUT_HSI1_ALT, "zumapro_gout_hsi1_alt", "hsi1-alt",
+	     0x2080, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_GPIO_HSI1, "zumapro_gout_gpio_hsi1", "zumapro_mout_hsi1_noc_local",
+	     0x205c, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_HSI1_CMU, "zumapro_gout_hsi1_cmu", "zumapro_mout_hsi1_noc_local",
+	     0x2004, 21, CLK_IGNORE_UNUSED, 0),
+};
+
+static const struct samsung_cmu_info hsi1_cmu __initconst = {
+	.mux_clks = hsi1_muxes,
+	.nr_mux_clks = ARRAY_SIZE(hsi1_muxes),
+	.div_clks = hsi1_dividers,
+	.nr_div_clks = ARRAY_SIZE(hsi1_dividers),
+	.ro_gate_clks = hsi1_ro_gates,
+	.nr_ro_gate_clks = ARRAY_SIZE(hsi1_ro_gates),
+	.nr_clk_ids = CLK_GOUT_HSI1_CMU + 1,
+	.clk_name = "bus",
+};
+
 /* CMU_HSI0. Firmware keeps the domain powered; there is no local PM. */
 PNAME(mout_hsi0_tcxo_user_parents) = { "oscclk", "hsi0-tcxo" };
 PNAME(mout_hsi0_usb20_ref_parents) = { "zumapro_dout_hsi0_usb", "zumapro_mout_hsi0_tcxo_user" };
@@ -518,6 +568,7 @@ static int __init zumapro_cmu_probe(struct platform_device *pdev)
 static const struct of_device_id zumapro_cmu_match[] = {
 	{ .compatible = "google,zumapro-cmu-g3d", .data = &g3d_cmu },
 	{ .compatible = "google,zumapro-cmu-hsi0", .data = &hsi0_cmu },
+	{ .compatible = "google,zumapro-cmu-hsi1", .data = &hsi1_cmu },
 	{ .compatible = "google,zumapro-cmu-hsi2", .data = &hsi2_cmu },
 	{ .compatible = "google,zumapro-cmu-peric0", .data = &peric0_cmu },
 	{ }
