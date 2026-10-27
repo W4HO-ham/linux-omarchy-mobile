@@ -19,6 +19,8 @@ description: |
   PLLs and CMU_TOP's G3D NoC, global and switch clocks.
   CMU_HSI1 supplies the HSI1 GPIO bank's clock; its ALT input is a
   board-level fixed clock.
+  CMU_APM supplies the always-on GPIO banks, the APM mailbox and its
+  internal memory from the always-on ALV PLL and the oscillator.
   CMU_PERIC1 supplies the PERIC1 GPIO bank and USI9 (the I2C bus of the
   NFC controller and the haptics driver) from CMU_TOP's PERIC1 NoC and IP
   clocks.
@@ -30,6 +32,7 @@ properties:
   compatible:
     enum:
       - google,zumapro-cmu-top
+      - google,zumapro-cmu-apm
       - google,zumapro-cmu-g3d
       - google,zumapro-cmu-hsi0
       - google,zumapro-cmu-hsi1
@@ -66,7 +69,9 @@ allOf:
   - if:
       properties:
         compatible:
-          const: google,zumapro-cmu-top
+          enum:
+            - google,zumapro-cmu-top
+            - google,zumapro-cmu-apm
     then:
       properties:
         clocks:
@@ -254,6 +259,14 @@ examples:
         clocks = <&oscclk>, <&cmu_top CLK_DOUT_PERIC1_NOC>,
                  <&cmu_top CLK_DOUT_PERIC1_IP>;
         clock-names = "oscclk", "bus", "ip";
+    };
+
+    clock-controller@15400000 {
+        compatible = "google,zumapro-cmu-apm";
+        reg = <0x15400000 0x8000>;
+        #clock-cells = <1>;
+        clocks = <&oscclk>;
+        clock-names = "oscclk";
     };
 
     clock-controller@1ee00000 {
