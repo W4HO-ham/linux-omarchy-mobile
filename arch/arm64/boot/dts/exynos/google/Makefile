@@ -7,7 +7,8 @@ dtb-$(CONFIG_ARCH_EXYNOS) += \
 	gs201-felix.dtb \
 	gs201-lynx.dtb \
 	gs201-panther.dtb \
-	zuma-husky.dtb
+	zuma-husky.dtb \
+	zumapro-tegu.dtb
 
 # ABL applies board overlays, so keep symbols for labels
 DTC_FLAGS_gs101-oriole += -@
@@ -17,3 +18,4 @@ DTC_FLAGS_gs201-felix += -@
 DTC_FLAGS_gs201-lynx += -@
 DTC_FLAGS_gs201-panther += -@
 DTC_FLAGS_zuma-husky += -@
+DTC_FLAGS_zumapro-tegu += -@
