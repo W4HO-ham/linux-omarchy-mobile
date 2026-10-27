@@ -373,6 +373,83 @@ static const struct samsung_cmu_info g3d_cmu __initconst = {
 };
 
 /*
+ * CMU_APM. Firmware sets it up and keeps it on: the muxes and dividers are
+ * read-only, the gates read-only gates. Its sources are the oscillator and
+ * the always-on ALV PLL's dividers. The ALV PLL runs at 786.432 MHz, 32
+ * times the 24.576 MHz oscillator (the CAL's nominal 787 MHz), so its
+ * dividers are given as exact fractions of that; the external pad input
+ * (pad_clk_apm) is not described, as on gs101.
+ */
+static const struct samsung_fixed_rate_clock apm_fixed_clks[] __initconst = {
+	FRATE(CLK_APM_PLL_ALV_DIV2, "zumapro_apm_pll_alv_div2", NULL, 0, 393216000),
+	FRATE(CLK_APM_PLL_ALV_DIV4, "zumapro_apm_pll_alv_div4", NULL, 0, 196608000),
+	FRATE(CLK_APM_PLL_ALV_DIV8, "zumapro_apm_pll_alv_div8", NULL, 0, 98304000),
+	FRATE(CLK_APM_PLL_ALV_DIV16, "zumapro_apm_pll_alv_div16", NULL, 0, 49152000),
+};
+
+PNAME(mout_apm_funcsrc_parents) = {
+	"zumapro_apm_pll_alv_div2", "zumapro_apm_pll_alv_div4",
+	"zumapro_apm_pll_alv_div16", "zumapro_apm_pll_alv_div8",
+};
+
+PNAME(mout_apm_func_parents) = {
+	"oscclk", "zumapro_mout_apm_funcsrc", "pad_clk_apm", "oscclk",
+};
+
+static const struct samsung_mux_clock apm_muxes[] __initconst = {
+	MUX_F(CLK_MOUT_APM_FUNCSRC, "zumapro_mout_apm_funcsrc",
+	      mout_apm_funcsrc_parents, 0x1004, 0, 2, 0, CLK_MUX_READ_ONLY),
+	MUX_F(CLK_MOUT_APM_FUNC, "zumapro_mout_apm_func", mout_apm_func_parents,
+	      0x1000, 0, 2, 0, CLK_MUX_READ_ONLY),
+};
+
+static const struct samsung_div_clock apm_dividers[] __initconst = {
+	DIV_F(CLK_DOUT_APM_NOC, "zumapro_dout_apm_noc", "zumapro_gout_apm_func",
+	      0x1808, 0, 3, 0, CLK_DIVIDER_READ_ONLY),
+	DIV_F(CLK_DOUT_APM_USI1_UART, "zumapro_dout_apm_usi1_uart",
+	      "zumapro_gout_apm_func", 0x1818, 0, 7, 0, CLK_DIVIDER_READ_ONLY),
+};
+
+static const struct samsung_gate_clock apm_ro_gates[] __initconst = {
+	GATE(CLK_GOUT_APM_FUNC, "zumapro_gout_apm_func", "zumapro_mout_apm_func",
+	     0x20d4, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_APM_CMU, "zumapro_gout_apm_cmu", "zumapro_dout_apm_noc",
+	     0x2010, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_APM_MAILBOX_AP, "zumapro_gout_apm_mailbox_ap",
+	     "zumapro_dout_apm_noc", 0x211c, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_APM_INTMEM_ACLK, "zumapro_gout_apm_intmem_aclk",
+	     "zumapro_dout_apm_noc", 0x2108, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_APM_INTMEM_PCLK, "zumapro_gout_apm_intmem_pclk",
+	     "zumapro_dout_apm_noc", 0x210c, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_APM_GPIO_CUSTOM_ALIVE, "zumapro_gout_apm_gpio_custom_alive",
+	     "zumapro_dout_apm_noc", 0x2000, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_APM_GPIO_ALIVE, "zumapro_gout_apm_gpio_alive",
+	     "zumapro_dout_apm_noc", 0x20d8, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_APM_GPIO_FAR_ALIVE, "zumapro_gout_apm_gpio_far_alive",
+	     "zumapro_dout_apm_noc", 0x20dc, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_APM_USI1_UART_IPCLK, "zumapro_gout_apm_usi1_uart_ipclk",
+	     "zumapro_dout_apm_usi1_uart", 0x20f4, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_APM_USI1_UART_PCLK, "zumapro_gout_apm_usi1_uart_pclk",
+	     "zumapro_dout_apm_noc", 0x20f8, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_APM_USI1_UART_RSTNSYNC, "zumapro_gout_apm_usi1_uart_rstnsync",
+	     "zumapro_dout_apm_usi1_uart", 0x2148, 21, CLK_IGNORE_UNUSED, 0),
+	GATE(CLK_GOUT_APM_SYSREG, "zumapro_gout_apm_sysreg", "zumapro_dout_apm_noc",
+	     0x2168, 21, CLK_IGNORE_UNUSED, 0),
+};
+
+static const struct samsung_cmu_info apm_cmu __initconst = {
+	.fixed_clks = apm_fixed_clks,
+	.nr_fixed_clks = ARRAY_SIZE(apm_fixed_clks),
+	.mux_clks = apm_muxes,
+	.nr_mux_clks = ARRAY_SIZE(apm_muxes),
+	.div_clks = apm_dividers,
+	.nr_div_clks = ARRAY_SIZE(apm_dividers),
+	.ro_gate_clks = apm_ro_gates,
+	.nr_ro_gate_clks = ARRAY_SIZE(apm_ro_gates),
+	.nr_clk_ids = CLK_GOUT_APM_SYSREG + 1,
+};
+
+/*
  * CMU_HSI1. Firmware keeps the domain powered and owns its setup: the muxes
  * and the ALT divider are read-only, the gates read-only gates. Only the
  * GPIO bank's clock is described; the PCIe channel 0 clocks are not.
@@ -622,6 +699,7 @@ static int __init zumapro_cmu_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id zumapro_cmu_match[] = {
+	{ .compatible = "google,zumapro-cmu-apm", .data = &apm_cmu },
 	{ .compatible = "google,zumapro-cmu-g3d", .data = &g3d_cmu },
 	{ .compatible = "google,zumapro-cmu-hsi0", .data = &hsi0_cmu },
 	{ .compatible = "google,zumapro-cmu-hsi1", .data = &hsi1_cmu },
