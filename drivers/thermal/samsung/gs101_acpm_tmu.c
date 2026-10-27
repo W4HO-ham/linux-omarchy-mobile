@@ -16,11 +16,15 @@
 #include <linux/platform_device.h>
 #include <linux/thermal.h>
 
-/* The sensors: BIG, MID, LITTLE, G3D, ISP, TPU */
-#define GS101_ACPM_TMU_SENSORS	6
+/*
+ * The sensors: BIG, MID, LITTLE, G3D, ISP, TPU, and on zumapro also AUR,
+ * in the firmware's order.
+ */
+#define GS101_ACPM_TMU_MAX_SENSORS	7
 
 struct gs101_tmu_data {
 	unsigned int acpm_chan;		/* ACPM channel of the TMU service */
+	unsigned int nr_sensors;
 };
 
 struct gs101_tmu;
@@ -33,7 +37,7 @@ struct gs101_tmu_sensor {
 struct gs101_tmu {
 	struct acpm_handle *handle;
 	unsigned int acpm_chan;
-	struct gs101_tmu_sensor sensors[GS101_ACPM_TMU_SENSORS];
+	struct gs101_tmu_sensor sensors[GS101_ACPM_TMU_MAX_SENSORS];
 };
 
 static int gs101_tmu_get_temp(struct thermal_zone_device *tz, int *temp)
@@ -81,7 +85,7 @@ static int gs101_tmu_probe(struct platform_device *pdev)
 	if (ret)
 		return dev_err_probe(dev, ret, "ACPM TMU init failed\n");
 
-	for (i = 0; i < GS101_ACPM_TMU_SENSORS; i++) {
+	for (i = 0; i < data->nr_sensors; i++) {
 		tmu->sensors[i].tmu = tmu;
 		tmu->sensors[i].id = i;
 
@@ -103,10 +107,17 @@ static int gs101_tmu_probe(struct platform_device *pdev)
 
 static const struct gs101_tmu_data gs101_tmu_data = {
 	.acpm_chan = 9,
+	.nr_sensors = 6,
+};
+
+static const struct gs101_tmu_data zumapro_tmu_data = {
+	.acpm_chan = 9,
+	.nr_sensors = 7,
 };
 
 static const struct of_device_id gs101_tmu_of_match[] = {
 	{ .compatible = "google,gs101-acpm-tmu", .data = &gs101_tmu_data },
+	{ .compatible = "google,zumapro-acpm-tmu", .data = &zumapro_tmu_data },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, gs101_tmu_of_match);
