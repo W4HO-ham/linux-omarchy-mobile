@@ -2232,6 +2232,13 @@ static void brcmf_pcie_setup(struct device *dev, int ret,
 fail:
 	brcmf_err(bus, "Dongle setup failed\n");
 	brcmf_pcie_bus_console_read(devinfo, true);
+	/*
+	 * The driver is released below, so report the crash (the coredump)
+	 * without arming a recovery reset: brcmf_pcie_remove() would wait for
+	 * that reset, which by then has queued a new firmware request whose
+	 * brcmf_pcie_setup() runs while remove frees the chip.
+	 */
+	brcmf_bus_cancel_reset_work(bus);
 	brcmf_fw_crashed(dev);
 	device_release_driver(dev);
 }
