@@ -19,6 +19,9 @@ description: |
   PLLs and CMU_TOP's G3D NoC, global and switch clocks.
   CMU_HSI1 supplies the HSI1 GPIO bank's clock; its ALT input is a
   board-level fixed clock.
+  CMU_PERIC1 supplies the PERIC1 GPIO bank and USI9 (the I2C bus of the
+  NFC controller and the haptics driver) from CMU_TOP's PERIC1 NoC and IP
+  clocks.
   The external oscillator supplies the PLL reference and oscillator mux
   paths.
   Clock identifiers are defined in dt-bindings/clock/google,zumapro.h.
@@ -32,6 +35,7 @@ properties:
       - google,zumapro-cmu-hsi1
       - google,zumapro-cmu-hsi2
       - google,zumapro-cmu-peric0
+      - google,zumapro-cmu-peric1
       - google,zumapro-cmu-misc
 
   reg:
@@ -156,6 +160,22 @@ allOf:
   - if:
       properties:
         compatible:
+          const: google,zumapro-cmu-peric1
+    then:
+      properties:
+        clocks:
+          items:
+            - description: External oscillator reference clock
+            - description: PERIC1 NoC clock from CMU_TOP
+            - description: PERIC1 USI input clock from CMU_TOP
+        clock-names:
+          items:
+            - const: oscclk
+            - const: bus
+            - const: ip
+  - if:
+      properties:
+        compatible:
           enum:
             - google,zumapro-cmu-peric0
             - google,zumapro-cmu-misc
@@ -225,6 +245,15 @@ examples:
         #clock-cells = <1>;
         clocks = <&oscclk>, <&cmu_top CLK_DOUT_HSI1_NOC>, <&hsi1_alt>;
         clock-names = "oscclk", "bus", "alt";
+    };
+
+    clock-controller@10c00000 {
+        compatible = "google,zumapro-cmu-peric1";
+        reg = <0x10c00000 0x8000>;
+        #clock-cells = <1>;
+        clocks = <&oscclk>, <&cmu_top CLK_DOUT_PERIC1_NOC>,
+                 <&cmu_top CLK_DOUT_PERIC1_IP>;
+        clock-names = "oscclk", "bus", "ip";
     };
 
     clock-controller@1ee00000 {
