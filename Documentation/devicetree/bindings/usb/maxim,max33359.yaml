@@ -16,6 +16,7 @@ properties:
     oneOf:
       - enum:
           - maxim,max33359
+          - maxim,max77779-tcpc
       - items:
           - const: maxim,max77759-tcpci
           - const: maxim,max33359
