@@ -470,6 +470,20 @@ config BATTERY_MAX77779
 
 	  The module is named max77779_battery.
 
+config CHARGER_MAX77779
+	tristate "Maxim MAX77779 battery charger"
+	depends on I2C
+	depends on OF
+	select REGMAP_I2C
+	help
+	  Say Y or M here to report the state of the charger in the Maxim
+	  MAX77779 power management IC, found in the Google Pixel 9a, and
+	  to let userspace stop and restart charging. The charger keeps
+	  its own (OTP) charge current and voltage; the driver only reads
+	  them.
+
+	  The module is named max77779_charger.
+
 config BATTERY_MAX1720X
 	tristate "Maxim MAX17201/MAX17205 Fuel Gauge"
 	depends on I2C
