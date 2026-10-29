@@ -58,9 +58,21 @@ int gnss_spi_recv(char *buff, unsigned int size)
 }
 EXPORT_SYMBOL(gnss_spi_recv);
 
+static unsigned int spi_mode;
+static unsigned int speed_hz;
+module_param(speed_hz, uint, 0444);
+module_param(spi_mode, uint, 0444);
+MODULE_PARM_DESC(spi_mode, "SPI mode for Kepler (test): 0-3");
+
 static int gnss_spi_probe(struct spi_device *spi)
 {
 	int ret = 0;
+
+	spi->mode = (spi->mode & ~SPI_MODE_X_MASK) | (spi_mode & SPI_MODE_X_MASK);
+	if (speed_hz)
+		spi->max_speed_hz = speed_hz;
+	gif_info("spi speed %u\n", spi->max_speed_hz);
+	gif_info("spi mode %u\n", spi->mode & SPI_MODE_X_MASK);
 
 	gif_info("+++\n");
 	mutex_init(&gnss_if.lock);
