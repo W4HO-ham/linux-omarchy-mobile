@@ -19,7 +19,7 @@
  * memory order; mainline spi-s3c64xx has no swap mode, and 8-bit words give
  * that order.
  */
-#define SPI_BITS_PER_WORD	32
+#define SPI_BITS_PER_WORD	8
 
 struct gnss_spi {
 	struct spi_device *spi;

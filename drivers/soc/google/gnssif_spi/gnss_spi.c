@@ -29,6 +29,9 @@ static void gnss_spi_swab(void *buf, unsigned int size)
 	u32 *w = buf;
 	unsigned int i;
 
+	if (SPI_BITS_PER_WORD != 32)
+		return;
+
 	for (i = 0; i < size / 4; i++)
 		w[i] = swab32(w[i]);
 }
@@ -40,7 +43,7 @@ static void gnss_spi_swab(void *buf, unsigned int size)
  * message instead (chip select held): each fits the polling path, as stock's
  * 64-byte reads do in Google's driver.
  */
-#define GNSS_SPI_PIECE	32
+#define GNSS_SPI_PIECE	SZ_64K
 
 /* omamobile test: override the controller's feedback delay (FB_CLK_SEL) */
 static int fb_delay = -1;
@@ -102,7 +105,7 @@ static int gnss_spi_xfer(const char *tx, char *rx, unsigned int size)
 	char *tmp = NULL;
 	int ret;
 
-	if (size % 4)
+	if (SPI_BITS_PER_WORD == 32 && size % 4)
 		return -EINVAL;
 	if (tx) {
 		tmp = kmemdup(tx, size, GFP_KERNEL);
