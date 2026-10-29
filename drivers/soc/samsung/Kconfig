@@ -75,4 +75,13 @@ config SAMSUNG_PM_CHECK_CHUNKSIZE
 config EXYNOS_REGULATOR_COUPLER
 	bool "Exynos SoC Regulator Coupler" if COMPILE_TEST
 	depends on ARCH_EXYNOS || COMPILE_TEST
+
+config TEGU_PDMA_PROBE
+	tristate "Pixel 9a pdma1 PrimeCell ID probe (bring-up)"
+	depends on ARCH_EXYNOS
+	default n
+	help
+	  Bring-up only, not for merge: reads the four PL330 PrimeCell ID
+	  registers of the Pixel 9a's pdma1 (0x10130000) once at load and
+	  fails the load, so nothing stays resident. For MODEM-PLAN G3.
 endif
