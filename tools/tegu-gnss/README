@@ -45,3 +45,8 @@ Offline, on a saved strace (reads of /dev/gnss_ipc) or rx.txt:
   long.py       the first three reads of 192 bytes or more, in 64-byte
                 rows.
   xor.py        footer against computed CRC of the "BAD checksum" lines.
+
+g7-short: the palmtop's own copy (recovered 2026-10-29): the fifth try's
+240 s strace session, output in /var/log/omamobile/g7/, which is what
+run-short.sh counts. g7-min is the later 12 s session with its own
+directory; the two are different scripts.
