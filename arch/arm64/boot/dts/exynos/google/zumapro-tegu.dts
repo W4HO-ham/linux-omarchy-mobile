@@ -320,7 +320,7 @@
 		     <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>;
 };
 
-/* The USB-C port controller's interrupt (gpa8-3). */
+/* The USB-C port controller's (gpa8-3) and the MAX77779's (gpa8-0) interrupts. */
 &gpa8 {
 	interrupt-controller;
 	#interrupt-cells = <2>;
@@ -436,6 +436,23 @@
 		reg = <0x36>;
 		shunt-resistor-micro-ohms = <2000>;
 	};
+
+	/*
+	 * The PMIC block: the chip's interrupt line (gpa8-0, stock's
+	 * if_pmic_irq) and the SGPIOs that carry the RT9470's lines.
+	 */
+	max77779_pmic: pmic@66 {
+		compatible = "maxim,max77779-pmic";
+		reg = <0x66>;
+		interrupt-parent = <&gpa8>;
+		interrupts = <0 IRQ_TYPE_LEVEL_LOW>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&if_pmic_irq>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
 };
 
 /* The RT9470, used only as the USB OTG boost (bring-up, not for merge). */
@@ -449,6 +466,9 @@
 		compatible = "omamobile,tegu-rt9471-boost";
 		reg = <0x5b>;
 		regulator-name = "otg-boost";
+		/* stock's rt,intr_gpio (PLC_INT_L, pulled up) and rt,ceb_gpio */
+		int-gpios = <&max77779_pmic 6 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+		enable-gpios = <&max77779_pmic 7 GPIO_ACTIVE_LOW>;
 	};
 };
 
@@ -494,6 +514,13 @@
 
 	usb_pd_irq: usb-pd-irq-pins {
 		samsung,pins = "gpa8-3";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_EINT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_UP>;
+		samsung,pin-drv = <0>;
+	};
+
+	if_pmic_irq: if-pmic-irq-pins {
+		samsung,pins = "gpa8-0";
 		samsung,pin-function = <EXYNOS_PIN_FUNC_EINT>;
 		samsung,pin-pud = <EXYNOS_PIN_PULL_UP>;
 		samsung,pin-drv = <0>;
