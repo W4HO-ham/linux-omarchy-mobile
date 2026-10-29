@@ -404,7 +404,13 @@
 			self-powered;
 			op-sink-microwatt = <2600000>;
 			sink-pdos = <PDO_FIXED(5000, 3000, PDO_FIXED_USB_COMM)>;
-			/* 5 V, 900 mA: the run's value, not yet traced to stock */
+			/*
+			 * 5 V, 900 mA is stock's (zuma/max777x9-tcpc.dtsi: "Extboost
+			 * can only do ~1A", set to 900 mA). Stock also sets
+			 * PDO_FIXED_SUSPEND and PDO_FIXED_DUAL_ROLE; the 10-28 run
+			 * advertised only these two flags, so they stay here as the
+			 * record of that run. The mergeable board takes stock's set.
+			 */
 			source-pdos = <PDO_FIXED(5000, 900, PDO_FIXED_USB_COMM | PDO_FIXED_DATA_SWAP)>;
 
 			port {
