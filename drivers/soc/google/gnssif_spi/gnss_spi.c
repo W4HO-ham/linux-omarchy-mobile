@@ -81,6 +81,31 @@ module_param(realign, int, 0444);
  * is, one at bit 1 shifts it; a read without one keeps the last choice.
  */
 static bool gnss_spi_late;
+static int gnss_spi_k;	/* realign=3: Kepler's bit offset, 0-7 */
+
+static int gnss_spi_preamble_k(const u8 *b, unsigned int n)
+{
+	unsigned int i, k;
+
+	for (i = 0; i + 2 < n; i++) {
+		u32 w = b[i] << 16 | b[i + 1] << 8 | b[i + 2];
+
+		for (k = 0; k < 8; k++)
+			if (((w >> (8 - k)) & 0xffff) == 0x6843)
+				return k;
+	}
+	return -1;
+}
+
+static void gnss_spi_shlk(u8 *b, unsigned int n, int k)
+{
+	unsigned int i;
+
+	if (!k)
+		return;
+	for (i = 0; i < n; i++)
+		b[i] = (b[i] << k) | (i + 1 < n ? b[i + 1] >> (8 - k) : 0);
+}
 
 static int gnss_spi_preamble_at(const u8 *b, unsigned int n)
 {
@@ -216,6 +241,15 @@ static int gnss_spi_xfer(const char *tx, char *rx, unsigned int size)
 	}
 	if (rx && realign == 1 && ret >= 0)
 		gnss_spi_shl1(rx, size);
+	if (rx && realign == 3 && ret >= 0) {
+		int at = gnss_spi_preamble_k(rx, size);
+
+		if (at >= 0 && at != gnss_spi_k) {
+			gif_info("realign: Kepler bit offset %d -> %d\n", gnss_spi_k, at);
+			gnss_spi_k = at;
+		}
+		gnss_spi_shlk(rx, size, gnss_spi_k);
+	}
 	if (rx && realign == 2 && ret >= 0) {
 		int at = gnss_spi_preamble_at(rx, size);
 
@@ -233,8 +267,39 @@ static int gnss_spi_xfer(const char *tx, char *rx, unsigned int size)
 	return ret;
 }
 
+static int gnss_spi_xfer(const char *tx, char *rx, unsigned int size);
+
+/* realign=3 and txk=1: send writes k bits later, so they land on Kepler's byte boundaries */
+static int txk;
+module_param(txk, int, 0444);
+
+static int gnss_spi_send_k(const char *tx, char *rx, unsigned int size, int k)
+{
+	u8 *t, *r = NULL;
+	unsigned int i;
+	int ret;
+
+	t = kzalloc(size + 1, GFP_KERNEL);
+	if (!t)
+		return -ENOMEM;
+	if (rx)
+		r = kzalloc(size + 1, GFP_KERNEL);
+	for (i = 0; i <= size; i++)
+		t[i] = (i < size ? (u8)tx[i] >> k : 0) |
+		       (i ? (u8)((u8)tx[i - 1] << (8 - k)) : 0);
+	ret = gnss_spi_xfer((char *)t, r ? (char *)r : NULL, size + 1);
+	if (r) {
+		memcpy(rx, r, size);
+		kfree(r);
+	}
+	kfree(t);
+	return ret;
+}
+
 int gnss_spi_send(char *buff, unsigned int size, char *rx_buff)
 {
+	if (realign == 3 && txk && gnss_spi_k)
+		return gnss_spi_send_k(buff, rx_buff, size, gnss_spi_k);
 	return gnss_spi_xfer(buff, rx_buff, size);
 }
 EXPORT_SYMBOL(gnss_spi_send);
