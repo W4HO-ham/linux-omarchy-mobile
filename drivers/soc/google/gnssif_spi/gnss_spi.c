@@ -15,6 +15,8 @@
 #include <linux/platform_data/spi-s3c64xx.h>
 #include <linux/io.h>
 #include <linux/delay.h>
+#include <linux/pm_runtime.h>
+#include <linux/ktime.h>
 
 #include "include/gnss.h"
 #include "gnss_spi.h"
@@ -94,6 +96,19 @@ module_param(carry, int, 0444);
 /* rx_gap_us: wait this long before each read-only transfer (Kepler's next block) */
 static int rx_gap_us;
 module_param(rx_gap_us, int, 0444);
+/*
+ * psr >= 0: the SPI block's own prescaler (CLK_CFG at 0x04: ENCLK bit 8,
+ * PSR bits 7:0; SPICLK = IPCLK / (2 * (PSR + 1)) if the IP has it). The
+ * driver never writes CLK_CFG for a CMU-clocked port. bench=1 times ten
+ * 64-byte reads at probe (Kepler not running yet) to see the real clock.
+ */
+#define GNSS_SPI_REGS	0x111e0000
+static int psr = -1;
+module_param(psr, int, 0444);
+static int bench;
+module_param(bench, int, 0444);
+static void __iomem *gnss_spi_regs;
+
 /* tx_gap_us: wait this long before each write (Kepler pausing its stream) */
 static int tx_gap_us;
 module_param(tx_gap_us, int, 0444);
@@ -362,10 +377,38 @@ static int gnss_spi_probe(struct spi_device *spi)
 		gif_info("feedback delay %u -> %d\n", cs->fb_delay, fb_delay);
 		cs->fb_delay = fb_delay;
 	}
+	if (psr >= 0 || bench) {
+		ret = pm_runtime_resume_and_get(spi->controller->dev.parent);
+		if (ret < 0)
+			gif_err("controller resume failed %d\n", ret);
+		else
+			gnss_spi_regs = ioremap(GNSS_SPI_REGS, 0x40);
+		ret = 0;
+	}
+	if (psr >= 0 && gnss_spi_regs) {
+		gif_info("CLK_CFG 0x%08x\n", readl(gnss_spi_regs + 4));
+		writel(BIT(8) | (psr & 0xff), gnss_spi_regs + 4);
+		gif_info("CLK_CFG now 0x%08x\n", readl(gnss_spi_regs + 4));
+	}
 	if (cs_setup_us > 0) {
 		spi->cs_setup.value = cs_setup_us;
 		spi->cs_setup.unit = SPI_DELAY_UNIT_USECS;
 		gif_info("cs_setup %d us\n", cs_setup_us);
+	}
+	if (bench) {
+		char *buf = kzalloc(64, GFP_KERNEL);
+		ktime_t t0;
+		int i;
+
+		if (buf) {
+			gnss_if.spi = spi;
+			t0 = ktime_get();
+			for (i = 0; i < 10; i++)
+				gnss_spi_xfer(NULL, buf, 64);
+			gif_info("bench: ten 64-byte reads in %lld us (82 us each at 6.24 MHz, 164 at 3.12)\n",
+				 ktime_us_delta(ktime_get(), t0));
+			kfree(buf);
+		}
 	}
 	spi_set_drvdata(spi, &gnss_if);
 	gnss_if.spi = spi;
