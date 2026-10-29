@@ -14,6 +14,7 @@
 #include "gnss_prj.h"
 #include "gnss_utils.h"
 #include "gnss_spi.h"
+void gnss_spi_release(void);
 
 /* #define GNSS_PKT_DEBUG	1 */
 
@@ -128,6 +129,7 @@ static void rx_work(struct work_struct *ws)
 			}
 		}
 	} while (gc->ops.gnss_spi_status(gc));
+	gnss_spi_release();
 
 	if (skb) {
 		pr_buffer("RX", skb->data, skb->len, skb->len);
