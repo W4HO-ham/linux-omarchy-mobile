@@ -68,10 +68,20 @@ static int div = -1;
 /* rx_cpha=1: read-only transfers in SPI mode 1, writes stay in mode 0 */
 static int rx_cpha;
 module_param(rx_cpha, int, 0444);
-/* hold=1: keep chip select asserted between the reads of one Kepler message */
-static int hold;
-module_param(hold, int, 0444);
-static bool held;
+/*
+ * realign=1: Kepler's data comes in exactly one bit late with feedback
+ * delay 3 (MODEM-PLAN G3), so shift every received buffer left one bit.
+ */
+static int realign;
+module_param(realign, int, 0444);
+
+static void gnss_spi_shl1(u8 *b, unsigned int n)
+{
+	unsigned int i;
+
+	for (i = 0; i < n; i++)
+		b[i] = (b[i] << 1) | (i + 1 < n ? b[i + 1] >> 7 : 0);
+}
 module_param(div, int, 0444);
 static void __iomem *gnss_spi_div;
 
@@ -152,8 +162,6 @@ static int gnss_spi_xfer(const char *tx, char *rx, unsigned int size)
 		t[i].tx_buf = tmp ? tmp + off : NULL;
 		t[i].rx_buf = rx ? rx + off : NULL;
 		t[i].bits_per_word = SPI_BITS_PER_WORD;
-		if (hold && !tx && i == n - 1)
-			t[i].cs_change = 1;	/* last transfer: keep CS after it */
 		spi_message_add_tail(&t[i], &msg);
 	}
 	gnss_spi_hold_div();
@@ -171,8 +179,6 @@ static int gnss_spi_xfer(const char *tx, char *rx, unsigned int size)
 			gnss_if.spi->mode |= SPI_CPHA;
 	}
 	ret = spi_sync(gnss_if.spi, &msg);
-	if (hold)
-		held = !tx;
 	if (rx_cpha)
 		mutex_unlock(&gnss_if.lock);
 	if (ret < 0)
@@ -186,6 +192,8 @@ static int gnss_spi_xfer(const char *tx, char *rx, unsigned int size)
 			gnss_spi_cmu_div();
 		}
 	}
+	if (rx && realign && ret >= 0)
+		gnss_spi_shl1(rx, size);
 	if (rx)
 		gnss_spi_swab(rx, size);
 	kfree(t);
@@ -193,24 +201,8 @@ static int gnss_spi_xfer(const char *tx, char *rx, unsigned int size)
 	return ret;
 }
 
-/* end a held chip select: an empty transfer, which the core ends with CS off */
-void gnss_spi_release(void)
-{
-	struct spi_transfer t = { .len = 0 };
-	struct spi_message msg;
-
-	if (!hold || !held)
-		return;
-	spi_message_init(&msg);
-	spi_message_add_tail(&t, &msg);
-	spi_sync(gnss_if.spi, &msg);
-	held = false;
-}
-EXPORT_SYMBOL(gnss_spi_release);
-
 int gnss_spi_send(char *buff, unsigned int size, char *rx_buff)
 {
-	gnss_spi_release();
 	return gnss_spi_xfer(buff, rx_buff, size);
 }
 EXPORT_SYMBOL(gnss_spi_send);
