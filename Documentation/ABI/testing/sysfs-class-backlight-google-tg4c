@@ -1,0 +1,23 @@
+What:		/sys/class/backlight/<backlight>/local_hbm_mode
+Date:		October 2026
+KernelVersion:	7.3
+Contact:	W4HO <87742609+W4HO-ham@users.noreply.github.com>
+Description:
+		(RW) Local high brightness mode of the Google TG4C panel
+		(Pixel 9a): a bright circle over the under-display
+		fingerprint sensor, which lights the finger for the sensor.
+		Write 1 to light it and 0 to turn it off; read gives the
+		current state. Writing 1 fails with EPERM if the
+		panel_google_tg4c module parameter allow_lhbm is off or the
+		brightness is 0, and with EBUSY unless the panel is on and
+		running at 120 Hz. The circle turns itself off
+		after local_hbm_max_timeout milliseconds, and when the panel
+		turns off or leaves 120 Hz.
+
+What:		/sys/class/backlight/<backlight>/local_hbm_max_timeout
+Date:		October 2026
+KernelVersion:	7.3
+Contact:	W4HO <87742609+W4HO-ham@users.noreply.github.com>
+Description:
+		(RO) How long, in milliseconds, local high brightness mode
+		stays on before the panel driver turns it off by itself.
