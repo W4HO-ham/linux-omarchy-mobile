@@ -7,6 +7,8 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/spi/spi.h>
+#include <linux/slab.h>
+#include <linux/swab.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
@@ -15,16 +17,37 @@
 #include "gnss_spi.h"
 
 
+/*
+ * omamobile test: 32-bit words, as stock, with each word byte-swapped in
+ * software (stock: the vendor driver's swap-mode), so the bytes go on the
+ * wire in memory order. CHPP pads its frames to a multiple of 4.
+ */
+static void gnss_spi_swab(void *buf, unsigned int size)
+{
+	u32 *w = buf;
+	unsigned int i;
+
+	for (i = 0; i < size / 4; i++)
+		w[i] = swab32(w[i]);
+}
+
 int gnss_spi_send(char *buff, unsigned int size, char *rx_buff)
 {
+	char *tmp;
 	int ret = 0;
 	struct spi_message msg;
 	struct spi_transfer tx;
 
+	if (size % 4)
+		return -EINVAL;
+	tmp = kmemdup(buff, size, GFP_KERNEL);
+	if (!tmp)
+		return -ENOMEM;
+	gnss_spi_swab(tmp, size);
 	memset(&tx, 0, sizeof(struct spi_transfer));
 	spi_message_init(&msg);
 	tx.len = size;
-	tx.tx_buf = buff;
+	tx.tx_buf = tmp;
 	tx.bits_per_word = SPI_BITS_PER_WORD;
 	if (rx_buff)
 		tx.rx_buf = rx_buff;
@@ -32,6 +55,10 @@ int gnss_spi_send(char *buff, unsigned int size, char *rx_buff)
 	ret = spi_sync(gnss_if.spi, &msg);
 	if (ret < 0)
 		gif_err("spi_sync() error:%d\n", ret);
+
+	kfree(tmp);
+	if (rx_buff)
+		gnss_spi_swab(rx_buff, size);
 
 	return ret;
 }
@@ -53,26 +80,16 @@ int gnss_spi_recv(char *buff, unsigned int size)
 	if (ret < 0)
 		gif_err("spi_sync() error:%d\n", ret);
 
+	gnss_spi_swab(buff, size);
+
 	return ret;
 
 }
 EXPORT_SYMBOL(gnss_spi_recv);
 
-static unsigned int spi_mode;
-static unsigned int speed_hz;
-module_param(speed_hz, uint, 0444);
-module_param(spi_mode, uint, 0444);
-MODULE_PARM_DESC(spi_mode, "SPI mode for Kepler (test): 0-3");
-
 static int gnss_spi_probe(struct spi_device *spi)
 {
 	int ret = 0;
-
-	spi->mode = (spi->mode & ~SPI_MODE_X_MASK) | (spi_mode & SPI_MODE_X_MASK);
-	if (speed_hz)
-		spi->max_speed_hz = speed_hz;
-	gif_info("spi speed %u\n", spi->max_speed_hz);
-	gif_info("spi mode %u\n", spi->mode & SPI_MODE_X_MASK);
 
 	gif_info("+++\n");
 	mutex_init(&gnss_if.lock);

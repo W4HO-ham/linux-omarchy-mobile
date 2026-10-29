@@ -10,7 +10,7 @@
 #include <linux/spi/spi.h>
 #include <linux/mutex.h>
 
-#define DEFAULT_SPI_RX_SIZE	32
+#define DEFAULT_SPI_RX_SIZE	64
 #define MAX_SPI_RX_SIZE	SZ_2K
 #define DEFAULT_SPI_TX_SIZE	SZ_4K
 /*
@@ -19,7 +19,7 @@
  * memory order; mainline spi-s3c64xx has no swap mode, and 8-bit words give
  * that order.
  */
-#define SPI_BITS_PER_WORD	8
+#define SPI_BITS_PER_WORD	32
 
 struct gnss_spi {
 	struct spi_device *spi;
