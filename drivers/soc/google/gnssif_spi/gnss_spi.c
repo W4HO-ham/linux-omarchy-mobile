@@ -213,6 +213,9 @@ static void __maybe_unused gnss_spi_cmu_div(void)
 /* omamobile test: microseconds from chip select to the first clock */
 static int cs_setup_us;
 module_param(cs_setup_us, int, 0444);
+/* cs_hold_us: keep chip select asserted this long after the last clock */
+static int cs_hold_us;
+module_param(cs_hold_us, int, 0444);
 
 static int gnss_spi_xfer(const char *tx, char *rx, unsigned int size)
 {
@@ -389,6 +392,11 @@ static int gnss_spi_probe(struct spi_device *spi)
 		gif_info("CLK_CFG 0x%08x\n", readl(gnss_spi_regs + 4));
 		writel(BIT(8) | (psr & 0xff), gnss_spi_regs + 4);
 		gif_info("CLK_CFG now 0x%08x\n", readl(gnss_spi_regs + 4));
+	}
+	if (cs_hold_us > 0) {
+		spi->cs_hold.value = cs_hold_us;
+		spi->cs_hold.unit = SPI_DELAY_UNIT_USECS;
+		gif_info("cs_hold %d us\n", cs_hold_us);
 	}
 	if (cs_setup_us > 0) {
 		spi->cs_setup.value = cs_setup_us;
