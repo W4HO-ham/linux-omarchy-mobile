@@ -154,6 +154,8 @@ static int send_betp(struct link_device *ld, struct io_device *iod, char *buff,
 {
 	struct gnss_ctl *gc = ld->gc;
 	struct sk_buff *skb;
+	unsigned int xfer;
+	char *tx;
 	int ret = 0;
 
 	if (size > ld->spi_tx_size) {
@@ -161,13 +163,24 @@ static int send_betp(struct link_device *ld, struct io_device *iod, char *buff,
 		size = ld->spi_tx_size;
 	}
 
-	skb = alloc_skb(size, GFP_KERNEL);
+	/*
+	 * omamobile: Kepler moves one 64-byte block per chip-select cycle,
+	 * so a write is a whole 64-byte exchange: the packet, zero padding,
+	 * and all 64 received bytes delivered (CHPP skips the zeros).
+	 */
+	xfer = round_up(size, 64);
+	tx = kzalloc(xfer, GFP_KERNEL);
+	if (!tx)
+		return -ENOMEM;
+	memcpy(tx, buff, size);
+	skb = alloc_skb(xfer, GFP_KERNEL);
 	if (!skb) {
 		gif_err("%s: ERR! tx alloc_skb fail (msg size:%u)\n",
 				iod->name, size);
+		kfree(tx);
 		return -ENOMEM;
 	}
-	skb_put(skb, size);
+	skb_put(skb, xfer);
 
 	atomic_set(&gc->tx_in_progress, 1);
 
@@ -186,7 +199,7 @@ static int send_betp(struct link_device *ld, struct io_device *iod, char *buff,
 		goto exit;
 	}
 
-	ret = gnss_spi_send(buff, size, (char *)skb->data);
+	ret = gnss_spi_send(tx, xfer, (char *)skb->data);
 	if (ret) {
 		gif_err("gnss_spi_send() error:%d\n", ret);
 		dev_kfree_skb_any(skb);
@@ -198,6 +211,7 @@ static int send_betp(struct link_device *ld, struct io_device *iod, char *buff,
 	}
 
 exit:
+	kfree(tx);
 	atomic_set(&gc->wait_rdy, 0);
 	atomic_set(&gc->tx_in_progress, 0);
 	gc->ops.gnss_send_betp_int(gc, 0);
