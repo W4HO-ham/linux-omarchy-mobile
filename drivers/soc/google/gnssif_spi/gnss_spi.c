@@ -44,7 +44,10 @@ static void gnss_spi_swab(void *buf, unsigned int size)
  * message instead (chip select held): each fits the polling path, as stock's
  * 64-byte reads do in Google's driver.
  */
-#define GNSS_SPI_PIECE	SZ_64K
+/* piece: transfer size within one message (chip select held); 64K = one transfer */
+static unsigned int piece = SZ_64K;
+module_param(piece, uint, 0444);
+#define GNSS_SPI_PIECE	piece
 
 /* omamobile test: override the controller's feedback delay (FB_CLK_SEL) */
 static int fb_delay = -1;
