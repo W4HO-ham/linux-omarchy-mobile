@@ -374,8 +374,11 @@
 };
 
 /*
- * The MAX77779's bus: its fuel gauge and its USB-C port controller, a sink
- * with no link to the USB controller's role yet.
+ * The MAX77779's bus: its fuel gauge, its charger and its USB-C port
+ * controller. Bring-up, not for merge: the port is dual-role, sourcing VBUS
+ * from the charger's chgin-otg regulator over the RT9470's OTG boost (the
+ * charger in standby, then the boost, as Google's ext-otg-only use case),
+ * and its data role drives dwc3's role switch.
  */
 &hsi2c6 {
 	clock-frequency = <950000>;
@@ -390,15 +393,35 @@
 		interrupts = <3 IRQ_TYPE_LEVEL_LOW>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&usb_pd_irq>;
+		vbus-supply = <&chgin_otg>;
 
 		connector {
 			compatible = "usb-c-connector";
 			label = "USB-C";
 			data-role = "dual";
-			power-role = "sink";
+			power-role = "dual";
+			try-power-role = "sink";
 			self-powered;
 			op-sink-microwatt = <2600000>;
 			sink-pdos = <PDO_FIXED(5000, 3000, PDO_FIXED_USB_COMM)>;
+			/* 5 V, 900 mA: the run's value, not yet traced to stock */
+			source-pdos = <PDO_FIXED(5000, 900, PDO_FIXED_USB_COMM | PDO_FIXED_DATA_SWAP)>;
+
+			port {
+				typec_hs: endpoint {
+					remote-endpoint = <&usb_hs>;
+				};
+			};
+		};
+	};
+
+	charger@69 {
+		compatible = "maxim,max77779-charger";
+		reg = <0x69>;
+		otg-boost-supply = <&otg_boost>;
+
+		chgin_otg: chgin-otg-regulator {
+			regulator-name = "chgin-otg";
 		};
 	};
 
@@ -406,6 +429,20 @@
 		compatible = "maxim,max77779-fg";
 		reg = <0x36>;
 		shunt-resistor-micro-ohms = <2000>;
+	};
+};
+
+/* The RT9470, used only as the USB OTG boost (bring-up, not for merge). */
+&hsi2c10 {
+	clock-frequency = <400000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&hsi2c10_bus>;
+	status = "okay";
+
+	otg_boost: regulator@5b {
+		compatible = "omamobile,tegu-rt9471-boost";
+		reg = <0x5b>;
+		regulator-name = "otg-boost";
 	};
 };
 
@@ -511,6 +548,13 @@
 &pinctrl_peric1 {
 	status = "okay";
 
+	hsi2c10_bus: hsi2c10-bus-pins {
+		samsung,pins = "gpp20-0", "gpp20-1";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_2>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
+		samsung,pin-drv = <0>;
+	};
+
 	hsi2c9_bus: hsi2c9-bus-pins {
 		samsung,pins = "gpp19-4", "gpp19-5";
 		samsung,pin-function = <EXYNOS_PIN_FUNC_2>;
@@ -594,11 +638,19 @@
 		 <&cmu_hsi0 CLK_GOUT_HSI0_USB_SUSPEND>,
 		 <&cmu_hsi0 CLK_GOUT_HSI0_USB_SUBCTL>;
 	clock-names = "bus_early", "ref", "suspend", "subctl";
-	dr_mode = "peripheral";
+	dr_mode = "otg";
 	maximum-speed = "high-speed";
 	snps,dis-u2-freeclk-exists-quirk;
 	snps,usb2-gadget-lpm-disable;
+	usb-role-switch;
+	role-switch-default-mode = "peripheral";
 	status = "okay";
+
+	port {
+		usb_hs: endpoint {
+			remote-endpoint = <&typec_hs>;
+		};
+	};
 };
 
 &usb_hsphy {
@@ -630,6 +682,10 @@
 };
 
 &usi9 {
+	status = "okay";
+};
+
+&usi10 {
 	status = "okay";
 };
 
