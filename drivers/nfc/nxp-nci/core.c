@@ -124,14 +124,49 @@ static const struct nci_driver_ops nxp_nci_core_ops[] = {
 	},
 };
 
+#define ST54L_NCI_PROP_NFC_MODE_SET	0x02
+#define ST54L_NFC_MODE_SET		0x02
+
 /*
- * The ST54L speaks the same plain NCI over I2C, but finds no card until it
- * gets the configuration ST's HAL sends after init: its proprietary 0xa1
- * (0x1e), 0xa2 (0x19) and 0x80 (0x01), and TOTAL_DURATION 500 ms. Without
- * it the controller polls and never reports a target.
+ * PROP_NFC_MODE_SET_RSP: on success the request ends with the controller's
+ * CORE_RESET_NTF, which the NCI core completes (nci_core_reset_ntf_packet()),
+ * bounded by nci_prop_cmd()'s timeout; ST's HAL waits for that NTF too.
+ */
+static int nxp_nci_st54l_mode_rsp(struct nci_dev *ndev, struct sk_buff *skb)
+{
+	struct nxp_nci_info *info = nci_get_drvdata(ndev);
+	u8 status = skb->len ? skb->data[0] : NCI_STATUS_SYNTAX_ERROR;
+
+	if (!info->st54l)
+		return -ENOTSUPP;
+	if (status != NCI_STATUS_OK)
+		nci_req_complete(ndev, status);
+
+	return 0;
+}
+
+static const struct nci_driver_ops nxp_nci_prop_ops[] = {
+	{
+		.opcode = nci_opcode_pack(NCI_GID_PROPRIETARY,
+					  ST54L_NCI_PROP_NFC_MODE_SET),
+		.rsp = nxp_nci_st54l_mode_rsp,
+	},
+};
+
+/*
+ * The ST54L speaks the same plain NCI over I2C, but needs two things ST's
+ * HAL does after init. First its NFC mode turned on (PROP_NFC_MODE_SET, as
+ * the HAL's halWrapperDataCallback does), after which the controller resets
+ * (CORE_RESET_NTF) and is initialised again; without it, the controller
+ * stops answering on I2C about 2 s after init whenever no discovery runs.
+ * Then the configuration the HAL sends: its proprietary 0xa1 (0x1e), 0xa2
+ * (0x19) and 0x80 (0x01), and TOTAL_DURATION 500 ms; without that it polls
+ * and never reports a target.
  */
 static int nxp_nci_post_setup(struct nci_dev *ndev)
 {
+	static const u8 st54l_mode_on[] = { ST54L_NFC_MODE_SET, 0x01 };
+	static const u8 init_v2[] = { 0x00, 0x00 };
 	static const u8 st54l_conf[] = {
 		0x04,			/* number of parameters */
 		0xa1, 0x01, 0x1e,
@@ -140,9 +175,22 @@ static int nxp_nci_post_setup(struct nci_dev *ndev)
 		0x00, 0x02, 0xf4, 0x01,	/* TOTAL_DURATION: 500 ms */
 	};
 	struct nxp_nci_info *info = nci_get_drvdata(ndev);
+	int r;
 
 	if (!info->st54l)
 		return 0;
+
+	r = nci_prop_cmd(ndev, ST54L_NCI_PROP_NFC_MODE_SET,
+			 sizeof(st54l_mode_on), st54l_mode_on);
+	if (r)
+		return r;
+	/*
+	 * The controller has reset (CORE_RESET_NTF) and is initialised again,
+	 * as NCI 2.0 (nci_core_init() sends the 1.x form, which it rejects).
+	 */
+	r = nci_core_cmd(ndev, NCI_OP_CORE_INIT_CMD, sizeof(init_v2), init_v2);
+	if (r)
+		return r;
 
 	return nci_core_cmd(ndev, NCI_OP_CORE_SET_CONFIG_CMD,
 			    sizeof(st54l_conf), st54l_conf);
@@ -156,6 +204,8 @@ static const struct nci_ops nxp_nci_ops = {
 	.post_setup = nxp_nci_post_setup,
 	.core_ops = nxp_nci_core_ops,
 	.n_core_ops = ARRAY_SIZE(nxp_nci_core_ops),
+	.prop_ops = nxp_nci_prop_ops,
+	.n_prop_ops = ARRAY_SIZE(nxp_nci_prop_ops),
 };
 
 int nxp_nci_probe(void *phy_id, struct device *pdev,
