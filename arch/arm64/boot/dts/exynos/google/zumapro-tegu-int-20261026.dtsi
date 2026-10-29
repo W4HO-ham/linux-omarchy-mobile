@@ -1364,15 +1364,17 @@
 };
 
 /*
- * Fingerprint (fp2): the sensor's 3.3 V, S2MPG15 LDO15S, always on as on
- * stock (GPL zumapro-tegu-udfps.dtsi). Off at hand-off, as on cheetah: the
+ * Fingerprint (fp2): the sensor's 3.3 V, S2MPG15 LDO15S (always on on
+ * stock, GPL zumapro-tegu-udfps.dtsi). Off at hand-off, as on cheetah: the
  * trusted app read chip id 0 until it is on. Its voltage is left as found.
+ * Sleep audit S2 (omarchy-mobile SLEEP-PLAN): not always-on, so the
+ * regulator core turns it off as unused; fingerprint doesn't work in
+ * this round.
  */
 &pmic_sub {
 	regulators {
 		udfps_3v3: ldo15s {
 			regulator-name = "udfps-3v3";
-			regulator-always-on;
 		};
 	};
 };
@@ -1383,25 +1385,25 @@
 };
 
 /*
- * gn2: the GNSS rails, on as stock turns them on (regulator-initial-mode 0,
- * which Google's s2mpg15 driver maps to on): off at hand-off, and the
- * Kepler GNSS core's RF front end can't calibrate without them.
+ * gn2: the GNSS rails (stock turns them on: regulator-initial-mode 0,
+ * which Google's s2mpg15 driver maps to on; off at hand-off, and the
+ * Kepler GNSS core's RF front end can't calibrate without them).
+ * Sleep audit S2 (omarchy-mobile SLEEP-PLAN): not always-on, so the
+ * regulator core turns them off as unused; GNSS doesn't work in this
+ * round, and the modem must not be started in this boot.
  */
 &pmic_sub {
 	regulators {
 		gnss_core: ldo9s {
 			regulator-name = "gnss-core";
-			regulator-always-on;
 		};
 
 		gnss_rf: ldo10s {
 			regulator-name = "gnss-rf";
-			regulator-always-on;
 		};
 
 		gnss_aux: ldo11s {
 			regulator-name = "gnss-aux";
-			regulator-always-on;
 		};
 	};
 };
