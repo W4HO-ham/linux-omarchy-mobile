@@ -44,7 +44,7 @@ static void gnss_spi_swab(void *buf, unsigned int size)
  * message instead (chip select held): each fits the polling path, as stock's
  * 64-byte reads do in Google's driver.
  */
-#define GNSS_SPI_PIECE	32
+#define GNSS_SPI_PIECE	SZ_64K
 
 /*
  * omamobile test: hs=1 sets CH_CFG HIGH_SPEED_EN before every transfer
