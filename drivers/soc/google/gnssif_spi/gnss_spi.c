@@ -84,6 +84,14 @@ module_param(realign, int, 0444);
  * is, one at bit 1 shifts it; a read without one keeps the last choice.
  */
 static bool gnss_spi_late;
+/*
+ * carry=1: the bit the shift drops at the end of a read (Kepler's last bit of
+ * the block) is the first bit sampled in the next read, when that read lands
+ * right after it in the same buffer (rx_work's skb).
+ */
+static int carry;
+module_param(carry, int, 0444);
+static u8 *gnss_spi_carry_at;
 static int gnss_spi_k;	/* realign=3: Kepler's bit offset, 0-7 */
 
 static int gnss_spi_preamble_k(const u8 *b, unsigned int n)
@@ -255,6 +263,12 @@ static int gnss_spi_xfer(const char *tx, char *rx, unsigned int size)
 	}
 	if (rx && realign == 2 && ret >= 0) {
 		int at = gnss_spi_preamble_at(rx, size);
+		u8 first = ((u8 *)rx)[0] >> 7;
+
+		if (carry && !tx && gnss_spi_carry_at &&
+		    gnss_spi_carry_at + 1 == (u8 *)rx && gnss_spi_late)
+			*gnss_spi_carry_at |= first;
+		gnss_spi_carry_at = tx ? NULL : (u8 *)rx + size - 1;
 
 		if (at >= 0 && gnss_spi_late != at) {
 			gnss_spi_late = at;
