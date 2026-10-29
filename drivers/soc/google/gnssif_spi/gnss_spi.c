@@ -14,6 +14,7 @@
 #include <linux/platform_device.h>
 #include <linux/platform_data/spi-s3c64xx.h>
 #include <linux/io.h>
+#include <linux/pm_runtime.h>
 
 #include "include/gnss.h"
 #include "gnss_spi.h"
@@ -43,7 +44,17 @@ static void gnss_spi_swab(void *buf, unsigned int size)
  * message instead (chip select held): each fits the polling path, as stock's
  * 64-byte reads do in Google's driver.
  */
-#define GNSS_SPI_PIECE	SZ_64K
+#define GNSS_SPI_PIECE	32
+
+/*
+ * omamobile test: hs=1 sets CH_CFG HIGH_SPEED_EN before every transfer
+ * (the driver sets it only at 30 MHz and up, and clears it in every FIFO
+ * flush), so each 32-byte piece is its own spi_sync.
+ */
+#define GNSS_SPI_REGS	0x111e0000
+static int hs;
+module_param(hs, int, 0444);
+static void __iomem *gnss_spi_regs;
 
 /* omamobile test: override the controller's feedback delay (FB_CLK_SEL) */
 static int fb_delay = -1;
@@ -118,15 +129,18 @@ static int gnss_spi_xfer(const char *tx, char *rx, unsigned int size)
 		kfree(tmp);
 		return -ENOMEM;
 	}
-	spi_message_init(&msg);
-	for (i = 0, off = 0; i < n; i++, off += GNSS_SPI_PIECE) {
+	ret = 0;
+	for (i = 0, off = 0; i < n && ret >= 0; i++, off += GNSS_SPI_PIECE) {
 		t[i].len = min(GNSS_SPI_PIECE, size - off);
 		t[i].tx_buf = tmp ? tmp + off : NULL;
 		t[i].rx_buf = rx ? rx + off : NULL;
 		t[i].bits_per_word = SPI_BITS_PER_WORD;
+		spi_message_init(&msg);
 		spi_message_add_tail(&t[i], &msg);
+		if (hs && gnss_spi_regs)
+			writel(readl(gnss_spi_regs) | BIT(6), gnss_spi_regs);
+		ret = spi_sync(gnss_if.spi, &msg);
 	}
-	ret = spi_sync(gnss_if.spi, &msg);
 	if (ret < 0)
 		gif_err("spi_sync() error:%d\n", ret);
 	{
@@ -164,6 +178,19 @@ static int gnss_spi_probe(struct spi_device *spi)
 	mutex_init(&gnss_if.lock);
 
 	gnss_spi_cmu();
+	if (hs) {
+		/* keep the controller clocked, so its registers can be touched */
+		ret = pm_runtime_resume_and_get(spi->controller->dev.parent);
+		if (ret < 0) {
+			gif_err("hs: controller resume failed %d\n", ret);
+			hs = 0;
+		} else {
+			gnss_spi_regs = ioremap(GNSS_SPI_REGS, 0x40);
+			gif_info("hs: CH_CFG 0x%08x\n",
+				 gnss_spi_regs ? readl(gnss_spi_regs) : 0);
+		}
+		ret = 0;
+	}
 	if (speed_hz > 0)
 		spi->max_speed_hz = speed_hz;
 	if (spi_setup(spi)) {
