@@ -18,6 +18,7 @@
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/module.h>
+#include <linux/property.h>
 #include <linux/nfc.h>
 #include <linux/gpio/consumer.h>
 #include <linux/unaligned.h>
@@ -36,6 +37,9 @@ struct nxp_nci_i2c_phy {
 
 	struct gpio_desc *gpiod_en;
 	struct gpio_desc *gpiod_fw;
+
+	/* quick retries for a controller that NACKs the transfer waking it */
+	unsigned int wake_retries;
 
 	int hard_fault; /*
 			 * < 0 if hardware error occurred (e.g. i2c err)
@@ -60,6 +64,7 @@ static int nxp_nci_i2c_set_mode(void *phy_id,
 
 static int nxp_nci_i2c_write(void *phy_id, struct sk_buff *skb)
 {
+	unsigned int i;
 	int r;
 	struct nxp_nci_i2c_phy *phy = phy_id;
 	struct i2c_client *client = phy->i2c_dev;
@@ -68,6 +73,14 @@ static int nxp_nci_i2c_write(void *phy_id, struct sk_buff *skb)
 		return phy->hard_fault;
 
 	r = i2c_master_send(client, skb->data, skb->len);
+	/*
+	 * The ST54L NACKs the transfer that wakes it from standby and may be
+	 * back in standby before the 110 ms retry: retry it quickly first.
+	 */
+	for (i = 0; r < 0 && i < phy->wake_retries; i++) {
+		usleep_range(2000, 2500);
+		r = i2c_master_send(client, skb->data, skb->len);
+	}
 	if (r < 0) {
 		/* Retry, chip was in standby */
 		msleep(110);
@@ -291,6 +304,8 @@ static int nxp_nci_i2c_probe(struct i2c_client *client)
 
 	phy->i2c_dev = client;
 	i2c_set_clientdata(client, phy);
+	if (device_is_compatible(dev, "st,st54l"))
+		phy->wake_retries = 5;
 
 	r = devm_acpi_dev_add_driver_gpios(dev, acpi_nxp_nci_gpios);
 	if (r)
