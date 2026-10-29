@@ -15,7 +15,7 @@
 #include "gnss_utils.h"
 #include "gnss_spi.h"
 
-/* #define GNSS_PKT_DEBUG	1 */
+#define GNSS_PKT_DEBUG 1
 
 #if defined(GNSS_PKT_DEBUG)
 #define PR_BUFFER_SIZE	64
@@ -49,17 +49,20 @@ static inline void dump2hex(char *buff, size_t buff_size,
 static int pr_buffer(const char *tag, const char *data, size_t data_len,
 							size_t max_len)
 {
-	size_t len = min(data_len, max_len);
-	unsigned char str[PR_BUFFER_SIZE * 3]; /* 1 <= sizeof <= max_len*3 */
+	/* omamobile: every byte, 64 per line, with the offset */
+	size_t off;
 
-	if (len > PR_BUFFER_SIZE)
-		len = PR_BUFFER_SIZE;
+	for (off = 0; off < data_len; off += 64) {
+		size_t n = min_t(size_t, 64, data_len - off);
+		unsigned char str[64 * 3 + 1];
+		size_t i;
 
-	dump2hex(str, (len ? len * 3 : 1), data, len);
-
-	/* don't change this printk to mif_debug for print this as level7 */
-	return pr_info("%s: %s(%ld): %s%s\n", "gnss_spi", tag, (long)data_len,
-			str, (len == data_len) ? "" : " ...");
+		for (i = 0; i < n; i++)
+			sprintf(str + i * 3, "%02x ", (unsigned char)data[off + i]);
+		str[n * 3] = 0;
+		pr_info("gnss_spi: %s(%zu)+%zu: %s\n", tag, data_len, off, str);
+	}
+	return 0;
 }
 #else	/* GNSS_PKT_DEBUG */
 static inline int pr_buffer(const char *tag, const char *data, size_t data_len,
