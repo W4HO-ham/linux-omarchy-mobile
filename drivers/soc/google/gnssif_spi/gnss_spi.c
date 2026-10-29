@@ -75,43 +75,26 @@ module_param(rx_cpha, int, 0444);
 static int realign;
 module_param(realign, int, 0444);
 
-/* txshift=1: send every write one bit later, with one byte added for the last bit */
-static int txshift;
-module_param(txshift, int, 0444);
+/*
+ * realign=2: Kepler's data is on time at first and one bit late later, so
+ * choose per read: a CHPP preamble (68 43) at bit 0 keeps the read as it
+ * is, one at bit 1 shifts it; a read without one keeps the last choice.
+ */
+static bool gnss_spi_late;
 
-static void gnss_spi_shl1(u8 *b, unsigned int n);
-
-static int gnss_spi_xfer(const char *tx, char *rx, unsigned int size);
-
-static int gnss_spi_xfer_txshift(const char *tx, char *rx, unsigned int size)
+static int gnss_spi_preamble_at(const u8 *b, unsigned int n)
 {
-	u8 *t, *r = NULL;
 	unsigned int i;
-	int ret;
 
-	t = kzalloc(size + 1, GFP_KERNEL);
-	if (!t)
-		return -ENOMEM;
-	if (rx) {
-		r = kzalloc(size + 1, GFP_KERNEL);
-		if (!r) {
-			kfree(t);
-			return -ENOMEM;
-		}
+	for (i = 0; i + 2 < n; i++) {
+		u32 w = b[i] << 16 | b[i + 1] << 8 | b[i + 2];
+
+		if ((w >> 8) == 0x6843)
+			return 0;
+		if (((w >> 7) & 0xffff) == 0x6843)
+			return 1;
 	}
-	/* t = tx >> 1 bit: Kepler samples each bit one slot late */
-	for (i = 0; i <= size; i++)
-		t[i] = (i < size ? (u8)tx[i] >> 1 : 0) | (i ? ((u8)tx[i - 1] & 1) << 7 : 0);
-	txshift = -txshift;	/* call the plain path once */
-	ret = gnss_spi_xfer((char *)t, (char *)r, size + 1);
-	txshift = -txshift;
-	if (r) {
-		/* gnss_spi_xfer already shifted the read left one bit */
-		memcpy(rx, r, size);
-		kfree(r);
-	}
-	kfree(t);
-	return ret;
+	return -1;
 }
 
 static void gnss_spi_shl1(u8 *b, unsigned int n)
@@ -231,8 +214,18 @@ static int gnss_spi_xfer(const char *tx, char *rx, unsigned int size)
 			gnss_spi_cmu_div();
 		}
 	}
-	if (rx && realign && ret >= 0)
+	if (rx && realign == 1 && ret >= 0)
 		gnss_spi_shl1(rx, size);
+	if (rx && realign == 2 && ret >= 0) {
+		int at = gnss_spi_preamble_at(rx, size);
+
+		if (at >= 0 && gnss_spi_late != at) {
+			gnss_spi_late = at;
+			gif_info("realign: Kepler data %s\n", at ? "one bit late" : "on time");
+		}
+		if (gnss_spi_late)
+			gnss_spi_shl1(rx, size);
+	}
 	if (rx)
 		gnss_spi_swab(rx, size);
 	kfree(t);
@@ -242,8 +235,6 @@ static int gnss_spi_xfer(const char *tx, char *rx, unsigned int size)
 
 int gnss_spi_send(char *buff, unsigned int size, char *rx_buff)
 {
-	if (txshift > 0)
-		return gnss_spi_xfer_txshift(buff, rx_buff, size);
 	return gnss_spi_xfer(buff, rx_buff, size);
 }
 EXPORT_SYMBOL(gnss_spi_send);
