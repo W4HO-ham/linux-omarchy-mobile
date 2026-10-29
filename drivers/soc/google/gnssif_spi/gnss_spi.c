@@ -94,6 +94,9 @@ module_param(carry, int, 0444);
 /* rx_gap_us: wait this long before each read-only transfer (Kepler's next block) */
 static int rx_gap_us;
 module_param(rx_gap_us, int, 0444);
+/* tx_gap_us: wait this long before each write (Kepler pausing its stream) */
+static int tx_gap_us;
+module_param(tx_gap_us, int, 0444);
 static u8 *gnss_spi_carry_at;
 static int gnss_spi_k;	/* realign=3: Kepler's bit offset, 0-7 */
 
@@ -228,6 +231,8 @@ static int gnss_spi_xfer(const char *tx, char *rx, unsigned int size)
 	gnss_spi_hold_div();
 	if (!tx && rx_gap_us > 0)
 		usleep_range(rx_gap_us, rx_gap_us + 50);
+	if (tx && tx_gap_us > 0)
+		usleep_range(tx_gap_us, tx_gap_us + 100);
 	if (rx_cpha)
 		mutex_lock(&gnss_if.lock);
 	if (rx_cpha) {
