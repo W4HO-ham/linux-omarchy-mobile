@@ -642,9 +642,8 @@ static const struct samsung_mux_clock hsi0_muxes[] __initconst = {
 	MUX_F(CLK_MOUT_HSI0_USI2_LOCAL, "zumapro_mout_hsi0_usi2_local",
 	      mout_hsi0_usi2_local_parents,
 	      0x101c, 0, 1, 0, CLK_MUX_READ_ONLY),
-	MUX_F(CLK_MOUT_HSI0_USI3_LOCAL, "zumapro_mout_hsi0_usi3_local",
-	      mout_hsi0_usi3_local_parents,
-	      0x1020, 0, 1, 0, CLK_MUX_READ_ONLY),
+	nMUX(CLK_MOUT_HSI0_USI3_LOCAL, "zumapro_mout_hsi0_usi3_local",
+	     mout_hsi0_usi3_local_parents, 0x1020, 0, 1),
 };
 
 static const struct samsung_div_clock hsi0_dividers[] __initconst = {
@@ -655,7 +654,7 @@ static const struct samsung_div_clock hsi0_dividers[] __initconst = {
 	DIV_F(CLK_DOUT_HSI0_USI2, "zumapro_dout_hsi0_usi2", "zumapro_gout_hsi0_usi2_source",
 	      0x181c, 0, 4, 0, 0),
 	DIV_F(CLK_DOUT_HSI0_USI3, "zumapro_dout_hsi0_usi3", "zumapro_gout_hsi0_usi3_source",
-	      0x1820, 0, 4, 0, 0),
+	      0x1820, 0, 4, CLK_SET_RATE_PARENT, 0),
 };
 
 static const struct samsung_gate_clock hsi0_gates[] __initconst = {
@@ -668,7 +667,7 @@ static const struct samsung_gate_clock hsi0_gates[] __initconst = {
 	     0x2100, 21, CLK_IGNORE_UNUSED, 0),
 	GATE(CLK_GOUT_HSI0_USI3_SOURCE, "zumapro_gout_hsi0_usi3_source",
 	     "zumapro_mout_hsi0_usi3_local",
-	     0x2124, 21, CLK_IGNORE_UNUSED, 0),
+	     0x2124, 21, CLK_IGNORE_UNUSED | CLK_SET_RATE_PARENT, 0),
 	GATE(CLK_GOUT_HSI0_USI3_IP, "zumapro_gout_hsi0_usi3_ip", "zumapro_dout_hsi0_usi3",
 	     0x2104, 21, CLK_IGNORE_UNUSED | CLK_SET_RATE_PARENT, 0),
 	GATE(CLK_GOUT_HSI0_USI3_PCLK, "zumapro_gout_hsi0_usi3_pclk", "zumapro_mout_hsi0_noc_local",
