@@ -75,4 +75,14 @@ config SAMSUNG_PM_CHECK_CHUNKSIZE
 config EXYNOS_REGULATOR_COUPLER
 	bool "Exynos SoC Regulator Coupler" if COMPILE_TEST
 	depends on ARCH_EXYNOS || COMPILE_TEST
+
+config TEGU_MIF_SLEEP
+	tristate "Pixel 9a memory rate for system sleep (bring-up)"
+	depends on ARCH_EXYNOS && PM_SLEEP && OF
+	default n
+	help
+	  Bring-up only, not for merge: a PM notifier that lowers the Pixel
+	  9a's memory interface (MIF) rate through ACPM's clock at
+	  suspend-prepare and restores the previous rate after resume, to
+	  measure what the memory rate costs in s2idle.
 endif
