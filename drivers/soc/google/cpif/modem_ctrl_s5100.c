@@ -1101,6 +1101,18 @@ static bool allow_poweroff;
 module_param(allow_poweroff, bool, 0644);
 MODULE_PARM_DESC(allow_poweroff, "Let cbd power the modem off (default: off, the modem stays on until shutdown)");
 
+/*
+ * Bring-up (Pixel 9a, MODEM-PLAN G3-L1): keep the PCIe link up instead of
+ * powering it off when the CP releases cp2ap_wakeup. Every hang during the
+ * GNSS sessions fell in the window between the CP's wake request and the
+ * link coming back, with the link cycling twice a second; with the link
+ * held, a hang that stays is not the link's, and one that goes away is.
+ * A forced power-off (crash, shutdown) still powers it off.
+ */
+static bool keep_link_up;
+module_param(keep_link_up, bool, 0644);
+MODULE_PARM_DESC(keep_link_up, "Never power the PCIe link off on the CP's request (bring-up; default: off)");
+
 static int power_off_cp(struct modem_ctl *mc)
 {
 	mif_info("%s: +++\n", mc->name);
@@ -1750,6 +1762,11 @@ static int s5100_poweroff_pcie(struct modem_ctl *mc, bool force_off)
 	if (!mc->pcie_powered_on &&
 			(s51xx_check_pcie_link_status(mc->pcie_ch_num) == 0)) {
 		mif_info("Skip pci power off: already powered off\n");
+		goto exit;
+	}
+
+	if (keep_link_up && !force_off) {
+		mif_info_limited("Skip pci power off: keep_link_up\n");
 		goto exit;
 	}
 
