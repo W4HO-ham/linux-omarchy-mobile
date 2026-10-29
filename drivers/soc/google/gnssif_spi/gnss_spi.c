@@ -65,6 +65,9 @@ static int speed_hz;
 module_param(speed_hz, int, 0444);
 /* div >= 0: hold the USI3 divider at this value (stock 12 MHz: osc=1, div=1) */
 static int div = -1;
+/* rx_cpha=1: read-only transfers in SPI mode 1, writes stay in mode 0 */
+static int rx_cpha;
+module_param(rx_cpha, int, 0444);
 module_param(div, int, 0444);
 static void __iomem *gnss_spi_div;
 
@@ -148,7 +151,22 @@ static int gnss_spi_xfer(const char *tx, char *rx, unsigned int size)
 		spi_message_add_tail(&t[i], &msg);
 	}
 	gnss_spi_hold_div();
+	if (rx_cpha)
+		mutex_lock(&gnss_if.lock);
+	if (rx_cpha) {
+		/*
+		 * spi-s3c64xx reconfigures on every transfer here (its
+		 * cur_speed is the 6.24 MHz it gets, never the rate asked),
+		 * and takes cur_mode from spi->mode when it does.
+		 */
+		if (tx)
+			gnss_if.spi->mode &= ~SPI_CPHA;
+		else
+			gnss_if.spi->mode |= SPI_CPHA;
+	}
 	ret = spi_sync(gnss_if.spi, &msg);
+	if (rx_cpha)
+		mutex_unlock(&gnss_if.lock);
 	if (ret < 0)
 		gif_err("spi_sync() error:%d\n", ret);
 	gnss_spi_hold_div();
