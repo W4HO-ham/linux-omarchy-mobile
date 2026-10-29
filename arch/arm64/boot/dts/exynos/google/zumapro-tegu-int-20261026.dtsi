@@ -1,0 +1,1507 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Pixel 9a: what the runtime overlays of 2026-10-26 proved, as base
+ * device tree (docs/HANDOFF.md, device/tegu/NOTES.md):
+ *  - the alive EINT banks gpa7 and gpa8 with their per-pin GIC SPIs (from
+ *    stock; the NFC interrupt is gpa7-5, the IF-PMIC's on gpa8);
+ *  - cpufreq-dt on the ACPM DVFS clocks (tegu-acpm-clk binds the
+ *    zumapro-acpm-clk device; cell = DVFS domain) with the firmware's
+ *    fvmap levels, mid and big clusters capped (the X4 at 3105 MHz reached
+ *    105 C in 4 s under an eight-core load), CPU capacities from stock;
+ *  - the CPU and GPU thermal zones on the ACPM TMU (tegu-acpm-thermal);
+ *  - DSIM0 for gs-dsim-cmd with the hand-over panel (backlight only);
+ *  - the ST NFC controller on hsi2c9 for st-nci;
+ *  - the HSI2 pinctrl block (gph3: PCIe1's PERST and WLAN_EN; stock has it
+ *    enabled), which cannot be enabled at runtime: the Samsung pinctrl
+ *    driver's per-SoC tables are __initconst and a late probe oopsed.
+ * Not here: cpuidle states (a separate, riskier gate), the GPU's own OPP
+ * table, panel sleep.
+ */
+
+#include <dt-bindings/usb/pd.h>
+#include <dt-bindings/media/video-interfaces.h>
+
+&gpa7 {
+	interrupt-controller;
+	#interrupt-cells = <2>;
+	interrupts = <GIC_SPI 36 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>;
+};
+
+&gpa8 {
+	interrupt-controller;
+	#interrupt-cells = <2>;
+	interrupts = <GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 47 IRQ_TYPE_LEVEL_HIGH>;
+};
+
+/ {
+
+	cpucl0_opp: opp-table-cpucl0 {
+		compatible = "operating-points-v2";
+		opp-shared;
+
+		opp-324000000 {
+			opp-hz = /bits/ 64 <324000000>;
+		};
+
+		opp-610000000 {
+			opp-hz = /bits/ 64 <610000000>;
+		};
+
+		opp-820000000 {
+			opp-hz = /bits/ 64 <820000000>;
+		};
+
+		opp-955000000 {
+			opp-hz = /bits/ 64 <955000000>;
+		};
+
+		opp-1098000000 {
+			opp-hz = /bits/ 64 <1098000000>;
+		};
+
+		opp-1197000000 {
+			opp-hz = /bits/ 64 <1197000000>;
+		};
+
+		opp-1328000000 {
+			opp-hz = /bits/ 64 <1328000000>;
+		};
+
+		opp-1425000000 {
+			opp-hz = /bits/ 64 <1425000000>;
+		};
+
+		opp-1548000000 {
+			opp-hz = /bits/ 64 <1548000000>;
+		};
+
+		opp-1696000000 {
+			opp-hz = /bits/ 64 <1696000000>;
+		};
+
+		opp-1849000000 {
+			opp-hz = /bits/ 64 <1849000000>;
+		};
+
+		opp-1950000000 {
+			opp-hz = /bits/ 64 <1950000000>;
+		};
+
+		opp-1951000000 {
+			opp-hz = /bits/ 64 <1951000000>;
+		};
+
+		opp-1952000000 {
+			opp-hz = /bits/ 64 <1952000000>;
+		};
+
+		opp-1953000000 {
+			opp-hz = /bits/ 64 <1953000000>;
+		};
+
+		opp-1954000000 {
+			opp-hz = /bits/ 64 <1954000000>;
+		};
+	};
+
+	cpucl1_opp: opp-table-cpucl1 {
+		compatible = "operating-points-v2";
+		opp-shared;
+
+		opp-357000000 {
+			opp-hz = /bits/ 64 <357000000>;
+		};
+
+		opp-578000000 {
+			opp-hz = /bits/ 64 <578000000>;
+		};
+
+		opp-648000000 {
+			opp-hz = /bits/ 64 <648000000>;
+		};
+
+		opp-787000000 {
+			opp-hz = /bits/ 64 <787000000>;
+		};
+
+		opp-910000000 {
+			opp-hz = /bits/ 64 <910000000>;
+		};
+
+		opp-1065000000 {
+			opp-hz = /bits/ 64 <1065000000>;
+		};
+
+		opp-1221000000 {
+			opp-hz = /bits/ 64 <1221000000>;
+		};
+
+		opp-1328000000 {
+			opp-hz = /bits/ 64 <1328000000>;
+		};
+
+		opp-1418000000 {
+			opp-hz = /bits/ 64 <1418000000>;
+		};
+
+		opp-1549000000 {
+			opp-hz = /bits/ 64 <1549000000>;
+		};
+
+		opp-1795000000 {
+			opp-hz = /bits/ 64 <1795000000>;
+		};
+
+		opp-1945000000 {
+			opp-hz = /bits/ 64 <1945000000>;
+		};
+
+		opp-2130000000 {
+			opp-hz = /bits/ 64 <2130000000>;
+		};
+
+		opp-2245000000 {
+			opp-hz = /bits/ 64 <2245000000>;
+		};
+
+		opp-2367000000 {
+			opp-hz = /bits/ 64 <2367000000>;
+		};
+		/* opp-2450000000: above the thermal-headroom cap */
+		/* opp-2600000000: above the thermal-headroom cap */
+	};
+
+	cpucl2_opp: opp-table-cpucl2 {
+		compatible = "operating-points-v2";
+		opp-shared;
+
+		opp-700000000 {
+			opp-hz = /bits/ 64 <700000000>;
+		};
+
+		opp-1164000000 {
+			opp-hz = /bits/ 64 <1164000000>;
+		};
+
+		opp-1396000000 {
+			opp-hz = /bits/ 64 <1396000000>;
+		};
+
+		opp-1557000000 {
+			opp-hz = /bits/ 64 <1557000000>;
+		};
+
+		opp-1745000000 {
+			opp-hz = /bits/ 64 <1745000000>;
+		};
+
+		opp-1885000000 {
+			opp-hz = /bits/ 64 <1885000000>;
+		};
+
+		opp-1999000000 {
+			opp-hz = /bits/ 64 <1999000000>;
+		};
+
+		opp-2147000000 {
+			opp-hz = /bits/ 64 <2147000000>;
+		};
+
+		opp-2294000000 {
+			opp-hz = /bits/ 64 <2294000000>;
+		};
+
+		opp-2363000000 {
+			opp-hz = /bits/ 64 <2363000000>;
+		};
+
+		opp-2499000000 {
+			opp-hz = /bits/ 64 <2499000000>;
+		};
+
+		opp-2687000000 {
+			opp-hz = /bits/ 64 <2687000000>;
+		};
+		/* opp-2802000000: above the thermal-headroom cap */
+		/* opp-2914000000: above the thermal-headroom cap */
+		/* opp-2943000000: above the thermal-headroom cap */
+		/* opp-2970000000: above the thermal-headroom cap */
+		/* opp-3015000000: above the thermal-headroom cap */
+		/* opp-3105000000: above the thermal-headroom cap */
+	};
+
+	thermal-zones {
+		big-thermal {
+			polling-delay-passive = <250>;
+			polling-delay = <1000>;
+			thermal-sensors = <&tegu_tmu 0>;
+
+			trips {
+				big_alert: big-alert {
+					temperature = <80000>;
+					hysteresis = <5000>;
+					type = "passive";
+				};
+
+				big_hot: big-hot {
+					temperature = <95000>;
+					hysteresis = <10000>;
+					type = "passive";
+				};
+
+				big_crit: big-crit {
+					temperature = <105000>;
+					hysteresis = <2000>;
+					type = "critical";
+				};
+			};
+
+			cooling-maps {
+				map0 {
+					trip = <&big_alert>;
+					cooling-device = <&cpu7 0xffffffff 0xffffffff>;
+				};
+
+				map1 {
+					trip = <&big_hot>;
+					cooling-device = <&cpu7 11 0xffffffff>;
+				};
+			};
+		};
+
+		mid-thermal {
+			polling-delay-passive = <250>;
+			polling-delay = <1000>;
+			thermal-sensors = <&tegu_tmu 1>;
+
+			trips {
+				mid_alert: mid-alert {
+					temperature = <80000>;
+					hysteresis = <5000>;
+					type = "passive";
+				};
+
+				mid_hot: mid-hot {
+					temperature = <95000>;
+					hysteresis = <10000>;
+					type = "passive";
+				};
+
+				mid_crit: mid-crit {
+					temperature = <105000>;
+					hysteresis = <2000>;
+					type = "critical";
+				};
+			};
+
+			cooling-maps {
+				map0 {
+					trip = <&mid_alert>;
+					cooling-device = <&cpu4 0xffffffff 0xffffffff>;
+				};
+
+				map1 {
+					trip = <&mid_hot>;
+					cooling-device = <&cpu4 14 0xffffffff>;
+				};
+			};
+		};
+
+		little-thermal {
+			polling-delay-passive = <250>;
+			polling-delay = <1000>;
+			thermal-sensors = <&tegu_tmu 2>;
+
+			trips {
+				little_alert: little-alert {
+					temperature = <80000>;
+					hysteresis = <5000>;
+					type = "passive";
+				};
+
+				little_hot: little-hot {
+					temperature = <95000>;
+					hysteresis = <10000>;
+					type = "passive";
+				};
+
+				little_crit: little-crit {
+					temperature = <105000>;
+					hysteresis = <2000>;
+					type = "critical";
+				};
+			};
+
+			cooling-maps {
+				map0 {
+					trip = <&little_alert>;
+					cooling-device = <&cpu0 0xffffffff 0xffffffff>;
+				};
+
+				map1 {
+					trip = <&little_hot>;
+					cooling-device = <&cpu0 15 0xffffffff>;
+				};
+			};
+		};
+		gpu-thermal {
+			polling-delay-passive = <1000>;
+			polling-delay = <2000>;
+			thermal-sensors = <&tegu_tmu 3>;
+
+			trips {
+				gpu_alert: gpu-alert {
+					temperature = <85000>;
+					hysteresis = <5000>;
+					type = "passive";
+				};
+
+				gpu_crit: gpu-crit {
+					temperature = <105000>;
+					hysteresis = <2000>;
+					type = "critical";
+				};
+			};
+
+			/*
+			 * panthor's devfreq cooling device: step_wise walks the
+			 * GPU down its OPPs above 85 C, so the levels above
+			 * 649 MHz (tegu-gpu-dvfs.dtso) have a throttle.
+			 */
+			cooling-maps {
+				map0 {
+					trip = <&gpu_alert>;
+					cooling-device = <&gpu 0xffffffff 0xffffffff>;
+				};
+			};
+		};
+	};
+};
+
+&cpu0 {
+	capacity-dmips-mhz = <193>;
+	dynamic-power-coefficient = <70>;
+	#cooling-cells = <2>;
+	clocks = <&acpm_ipc 2>;
+	operating-points-v2 = <&cpucl0_opp>;
+};
+
+&cpu1 {
+	capacity-dmips-mhz = <193>;
+	dynamic-power-coefficient = <70>;
+	#cooling-cells = <2>;
+	clocks = <&acpm_ipc 2>;
+	operating-points-v2 = <&cpucl0_opp>;
+};
+
+&cpu2 {
+	capacity-dmips-mhz = <193>;
+	dynamic-power-coefficient = <70>;
+	#cooling-cells = <2>;
+	clocks = <&acpm_ipc 2>;
+	operating-points-v2 = <&cpucl0_opp>;
+};
+
+&cpu3 {
+	capacity-dmips-mhz = <193>;
+	dynamic-power-coefficient = <70>;
+	#cooling-cells = <2>;
+	clocks = <&acpm_ipc 2>;
+	operating-points-v2 = <&cpucl0_opp>;
+};
+
+&cpu4 {
+	capacity-dmips-mhz = <927>;
+	dynamic-power-coefficient = <513>;
+	#cooling-cells = <2>;
+	clocks = <&acpm_ipc 3>;
+	operating-points-v2 = <&cpucl1_opp>;
+};
+
+&cpu5 {
+	capacity-dmips-mhz = <927>;
+	dynamic-power-coefficient = <513>;
+	#cooling-cells = <2>;
+	clocks = <&acpm_ipc 3>;
+	operating-points-v2 = <&cpucl1_opp>;
+};
+
+&cpu6 {
+	capacity-dmips-mhz = <927>;
+	dynamic-power-coefficient = <513>;
+	#cooling-cells = <2>;
+	clocks = <&acpm_ipc 3>;
+	operating-points-v2 = <&cpucl1_opp>;
+};
+
+&cpu7 {
+	capacity-dmips-mhz = <1024>;
+	dynamic-power-coefficient = <757>;
+	#cooling-cells = <2>;
+	clocks = <&acpm_ipc 4>;
+	operating-points-v2 = <&cpucl2_opp>;
+};
+
+&soc {
+	dsi0: dsi@19440000 {
+		compatible = "google,gs201-dsim";
+		reg = <0x0 0x19440000 0x300>,
+		      <0x0 0x19460100 0x700>,
+		      <0x0 0x19460000 0x100>;
+		reg-names = "dsi", "dphy", "dphy-extra";
+		/* stock drmdsim@19440000: GIC SPI 252; gs-dsim-cmd does not use it */
+		interrupts = <GIC_SPI 252 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "okay";
+
+		tegu_panel: panel@0 {
+			compatible = "google,tg4c";
+			reg = <0>;
+		};
+
+		port {
+			dsi0_in: endpoint {
+				remote-endpoint = <&decon0_out>;
+			};
+		};
+	};
+};
+
+/*
+ * DECON's output is DSIM0, so gs-decon can switch the link and the panel
+ * between 60 and 120 Hz. No MIF/DISP floor clocks: the ACPM clock driver
+ * loads late, and the bootloader leaves MIF (2028 MHz) and DISP (400 MHz)
+ * above the 120 Hz floors.
+ */
+&decon0 {
+	port {
+		decon0_out: endpoint {
+			remote-endpoint = <&dsi0_in>;
+		};
+	};
+};
+
+/*
+ * The sub PMIC's ten GPIOs (ACPM access type 0x0c). Pins 0 and 1 are the
+ * camera PMIC's chip select and the camera buck-boost's enable in stock's
+ * board overlay (slg51002 dlg,cs-gpios, rt6160 enable-gpios); nothing claims
+ * them yet, so the block only reports their state.
+ */
+&pmic_sub {
+	pmic_sub_gpio: gpio {
+		compatible = "samsung,s2mpg15-gpio";
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+};
+
+/*
+ * Camera power, CAM0 (survey: device/tegu/CAMERA-PLAN.md): stock's RT6160
+ * buck-boost (PP3200_CAM_BB, enable on the sub PMIC's GPIO 1) feeds the
+ * SLG51002 camera PMIC (chip select on its GPIO 0), whose eight LDOs feed the
+ * sensors. Voltages as stock's board overlay. No consumers and no
+ * always-on: the drivers probe and read their IDs, and every LDO stays off.
+ */
+&hsi2c4 {
+	cam_bb: regulator@77 {
+		compatible = "richtek,rt6160";
+		reg = <0x77>;
+		enable-gpios = <&pmic_sub_gpio 1 GPIO_ACTIVE_HIGH>;
+		regulator-name = "pp3200-cam-bb";
+		regulator-min-microvolt = <3200000>;
+		regulator-max-microvolt = <3200000>;
+		regulator-enable-ramp-delay = <2000>;
+	};
+
+	cam_pmic: pmic@75 {
+		compatible = "dlg,slg51002";
+		reg = <0x75>;
+		dlg,cs-gpios = <&pmic_sub_gpio 0 GPIO_ACTIVE_HIGH>;
+		vin1-2-supply = <&cam_bb>;
+		vin3-supply = <&cam_bb>;
+		vin4-supply = <&cam_bb>;
+		vin5-supply = <&cam_bb>;
+
+		regulators {
+			cam_ldo1: ldo1 {
+				regulator-name = "cam-ldo1";
+				regulator-min-microvolt = <2250000>;
+				regulator-max-microvolt = <2250000>;
+			};
+			cam_ldo2: ldo2 {
+				regulator-name = "cam-ldo2";
+				regulator-min-microvolt = <2800000>;
+				regulator-max-microvolt = <2800000>;
+			};
+			cam_ldo3: ldo3 {
+				regulator-name = "cam-ldo3";
+				regulator-min-microvolt = <2800000>;
+				regulator-max-microvolt = <2800000>;
+			};
+			cam_ldo4: ldo4 {
+				regulator-name = "cam-ldo4";
+				regulator-min-microvolt = <2900000>;
+				regulator-max-microvolt = <2900000>;
+			};
+			cam_ldo5: ldo5 {
+				regulator-name = "cam-ldo5";
+				regulator-min-microvolt = <2900000>;
+				regulator-max-microvolt = <2900000>;
+			};
+			cam_ldo6: ldo6 {
+				regulator-name = "cam-ldo6";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <1200000>;
+			};
+			cam_ldo7: ldo7 {
+				regulator-name = "cam-ldo7";
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <1200000>;
+			};
+		};
+	};
+};
+
+/*
+ * Camera, CAM1 prerequisites: the ultrawide's I2C (hsi2c_2 on USI2, pins
+ * gpp4-0/1 as stock), the sensors' shared 1.8 V (sub PMIC LDO12) and the
+ * 1.35 V camera rail (a fixed regulator on the sub PMIC's GPIO 2, as stock's
+ * PP1350_CAM). No consumers: everything stays off until a sensor is powered.
+ */
+&pinctrl_peric0 {
+	hsi2c2_bus: hsi2c2-bus-pins {
+		samsung,pins = "gpp4-0", "gpp4-1";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_3>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
+		samsung,pin-drv = <0>;
+	};
+};
+
+&usi2 {
+	status = "okay";
+};
+
+&hsi2c2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&hsi2c2_bus>;
+	clock-frequency = <400000>;
+	status = "okay";
+};
+
+&pmic_sub {
+	regulators {
+		cam_1v8: ldo12s {
+			regulator-name = "cam-1v8";
+		};
+	};
+};
+
+/ {
+	cam_1v35: regulator-cam-1v35 {
+		compatible = "regulator-fixed";
+		regulator-name = "pp1350-cam";
+		regulator-min-microvolt = <1350000>;
+		regulator-max-microvolt = <1350000>;
+		gpio = <&pmic_sub_gpio 2 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		startup-delay-us = <2000>;
+	};
+};
+
+/*
+ * CAM1 (passed: model ID 0x0712, an IMX712): the ultrawide sensor (stock
+ * sensor-leshen-uw, 0x1a on hsi2c_2) in stock's LWIS order: pp3200_bb,
+ * pp1350, s2mpg15_ldo12, ldo3, ldo6, reset, mclk_on.
+ * Master clock: CMU_TOP CIS_CLK0 from OSCCLK (24.576 MHz; stock asks
+ * 24 MHz), out on gpp3-0 (stock's sensor-mclk1).
+ */
+&pinctrl_peric0 {
+	cam_mclk_on: cam-mclk-on-pins {
+		samsung,pins = "gpp3-0";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_2>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
+		samsung,pin-drv = <1>;
+	};
+
+	cam_mclk_off: cam-mclk-off-pins {
+		samsung,pins = "gpp3-0";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_OUTPUT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_DOWN>;
+		samsung,pin-drv = <1>;
+	};
+};
+
+/* The ultrawide, a Sony IMX712, on the imx386 driver (CAM2a). No receiver yet: the endpoint has no remote. */
+&hsi2c2 {
+	cam_uw: camera@1a {
+		compatible = "sony,imx712";
+		reg = <0x1a>;
+		clocks = <&cmu_top CLK_DOUT_CIS_CLK0>;
+		assigned-clocks = <&cmu_top CLK_MOUT_CIS_CLK0>, <&cmu_top CLK_DOUT_CIS_CLK0>;
+		assigned-clock-parents = <&oscclk>, <0>;
+		assigned-clock-rates = <0>, <24576000>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&cam_mclk_on>;
+		/* high runs the sensor (stock's LWIS "reset" step sets 1) */
+		reset-gpios = <&gpp4 2 GPIO_ACTIVE_LOW>;
+		/* stock's order: PP3200_BB, PP1350, S2MPG15 LDO12, LDO3, LDO6 */
+		vbb-supply = <&cam_bb>;
+		vbuck-supply = <&cam_1v35>;
+		vif-supply = <&cam_1v8>;
+		vdig-supply = <&cam_ldo6>;
+		vana-supply = <&cam_ldo3>;
+		firmware-name = "omamobile/camera/imx712-uw.bin";
+		orientation = <1>;	/* back */
+		status = "okay";
+
+		port {
+			cam_uw_out: endpoint {
+				data-lanes = <1 2 3 4>;
+				link-frequencies = /bits/ 64 <552960000 479232000>;
+			};
+		};
+	};
+};
+
+/*
+ * CAM-F: the front camera (stock sensor-leshen, 0x1a on hsi2c_3, pins gpp6-0/1)
+ * powered once by the ID probe in stock's order: pp3200_bb, pp1350,
+ * s2mpg15_ldo12, ldo2, ldo7, reset (gpp6-2), mclk_on. Master clock: CMU_TOP
+ * CIS_CLK1 from OSCCLK, out on gpp5-0 (sensor-mclk2). Pins, pulls and the
+ * reset line as Google's GPL zuma-tegu-camera.dtsi and zumapro-pinctrl.dtsi:
+ * this bus has no external pull-ups, stock turns the internal ones on.
+ */
+&pinctrl_peric0 {
+	hsi2c3_bus: hsi2c3-bus-pins {
+		samsung,pins = "gpp6-0", "gpp6-1";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_3>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_UP>;
+		samsung,pin-drv = <0>;
+	};
+
+	cam_front_mclk_on: cam-front-mclk-on-pins {
+		samsung,pins = "gpp5-0";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_2>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
+		samsung,pin-drv = <1>;
+	};
+
+	cam_front_mclk_off: cam-front-mclk-off-pins {
+		samsung,pins = "gpp5-0";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_OUTPUT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_DOWN>;
+		samsung,pin-drv = <1>;
+	};
+};
+
+&usi3 {
+	status = "okay";
+};
+
+&hsi2c3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&hsi2c3_bus>;
+	clock-frequency = <400000>;
+	status = "okay";
+};
+
+/* The front camera, a second Sony IMX712 (CAM-F: model 0x0712), on the imx386 driver. */
+&hsi2c3 {
+	cam_front: camera@1a {
+		compatible = "sony,imx712";
+		reg = <0x1a>;
+		clocks = <&cmu_top CLK_DOUT_CIS_CLK1>;
+		assigned-clocks = <&cmu_top CLK_MOUT_CIS_CLK1>, <&cmu_top CLK_DOUT_CIS_CLK1>;
+		assigned-clock-parents = <&oscclk>, <0>;
+		assigned-clock-rates = <0>, <24576000>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&cam_front_mclk_on>;
+		/* high runs the sensor (stock's LWIS "reset" step sets 1) */
+		reset-gpios = <&gpp6 2 GPIO_ACTIVE_LOW>;
+		/* stock's order: PP3200_BB, PP1350, S2MPG15 LDO12, LDO2, LDO7 */
+		vbb-supply = <&cam_bb>;
+		vbuck-supply = <&cam_1v35>;
+		vif-supply = <&cam_1v8>;
+		vdig-supply = <&cam_ldo7>;
+		vana-supply = <&cam_ldo2>;
+		/* the HAL has one IMX712 driver, so the ultrawide's mode list serves */
+		firmware-name = "omamobile/camera/imx712-uw.bin";
+		orientation = <0>;	/* front */
+		status = "okay";
+
+		port {
+			cam_front_out: endpoint {
+				remote-endpoint = <&csis_front_in>;
+				data-lanes = <1 2 3 4>;
+				link-frequencies = /bits/ 64 <552960000 479232000>;
+			};
+		};
+	};
+};
+
+/*
+ * CAM-M: the main camera (stock sensor-barghest, 0x56 on hsi2c_5, pins
+ * gpp10-0/1) powered once by the ID probe in stock's order: pp3200_bb,
+ * pp1350, s2mpg15_ldo12, ldo5, ldo4, ldo1, vdig_enable (main PMIC GPIO 0),
+ * reset (gpp10-2), mclk_on. Master clock: CMU_TOP CIS_CLK3 (stock asks
+ * 26 MHz; OSCCLK gives 24.576 MHz, enough to answer on I2C), out on gpp9-0
+ * (sensor-mclk4). Bus pins pulled up internally, as stock.
+ */
+&pmic_main {
+	pmic_main_gpio: gpio {
+		compatible = "samsung,s2mpg14-gpio";
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+};
+
+&pinctrl_peric0 {
+	hsi2c5_bus: hsi2c5-bus-pins {
+		samsung,pins = "gpp10-0", "gpp10-1";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_3>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_UP>;
+		samsung,pin-drv = <0>;
+	};
+
+	cam_main_mclk_on: cam-main-mclk-on-pins {
+		samsung,pins = "gpp9-0";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_2>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
+		samsung,pin-drv = <1>;
+	};
+
+	cam_main_mclk_off: cam-main-mclk-off-pins {
+		samsung,pins = "gpp9-0";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_OUTPUT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_DOWN>;
+		samsung,pin-drv = <1>;
+	};
+};
+
+&usi5 {
+	status = "okay";
+};
+
+&hsi2c5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&hsi2c5_bus>;
+	clock-frequency = <400000>;
+	status = "okay";
+};
+
+/ {
+	/* the main camera's digital supply: a switch on the main PMIC's GPIO 0 */
+	cam_main_vdig: regulator-cam-main-vdig {
+		compatible = "regulator-fixed";
+		regulator-name = "cam-main-vdig";
+		gpio = <&pmic_main_gpio 0 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+};
+
+/*
+ * The main camera, a Samsung GN8 (model 0x08e8), on the s5kgn1 driver: three
+ * C-PHY trios into CSIS link 0.
+ */
+&hsi2c5 {
+	cam_main: camera@56 {
+		compatible = "samsung,s5kgn8";
+		reg = <0x56>;
+		clocks = <&cmu_top CLK_DOUT_CIS_CLK3>;
+		assigned-clocks = <&cmu_top CLK_MOUT_CIS_CLK3>, <&cmu_top CLK_DOUT_CIS_CLK3>;
+		assigned-clock-parents = <&oscclk>, <0>;
+		assigned-clock-rates = <0>, <24576000>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&cam_main_mclk_on>;
+		reset-gpios = <&gpp10 2 GPIO_ACTIVE_LOW>;
+		/* stock's order: PP3200_BB, PP1350, S2MPG15 LDO12, LDO5, LDO4, LDO1, VDIG */
+		vbb-supply = <&cam_bb>;
+		vbuck-supply = <&cam_1v35>;
+		vio-supply = <&cam_1v8>;
+		vaux-supply = <&cam_ldo5>;
+		vaux2-supply = <&cam_ldo4>;
+		vana-supply = <&cam_ldo1>;
+		vdig-supply = <&cam_main_vdig>;
+		firmware-name = "omamobile/camera/s5kgn8-main.bin";
+		/*
+		 * Its lines burst at over 2 GB/s on three trios; the ultrawide's
+		 * 550 MB/s lines land cleanly (cheetah's receiver lost lines above
+		 * about 400 MB/s, CAMERA-PLAN CAM-M.5l there).
+		 */
+		samsung,max-line-throughput = <500>;
+		orientation = <1>;	/* back */
+		status = "okay";
+
+		port {
+			cam_main_out: endpoint {
+				remote-endpoint = <&csis_main_in>;
+				bus-type = <MEDIA_BUS_TYPE_CSI2_CPHY>;
+				data-lanes = <1 2 3>;
+				link-frequencies = /bits/ 64 <1370112000>;
+			};
+		};
+	};
+};
+
+/* The main camera's receiver: link 0, three C-PHY trios on slave 0, SPI 467 (ctx0). */
+&soc {
+	csis_main: csis@1c040000 {
+		compatible = "google,zumapro-csis";
+		reg = <0x0 0x1c040000 0x1000>, <0x0 0x1c320000 0x2000>;
+		reg-names = "link", "core";
+		interrupts = <GIC_SPI 467 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 479 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "link", "core";
+		phys = <&csis_dcphy 0>;
+		google,csis-link = <0>;
+		/* INT DVFS (ACPM domain 1), the ISP-FE NOC clock's rail, then the clock */
+		clocks = <&acpm_ipc 1>, <&cmu_top CLK_DOUT_ISPFE_NOC>;
+		clock-names = "int", "fe";
+		/* without them the link decodes frame starts and nothing else */
+		google,lrte-packet-delimiters;
+
+		port {
+			csis_main_in: endpoint {
+				remote-endpoint = <&cam_main_out>;
+				bus-type = <MEDIA_BUS_TYPE_CSI2_CPHY>;
+				data-lanes = <1 2 3>;
+			};
+		};
+	};
+};
+
+/*
+ * CAM2b: the camera receiver for the ultrawide, link-only (no DMA yet).
+ * ISP-FE block (power domain on from ABL, CMU_ISPFE gates on): the DC-PHY
+ * slaves at 0x1c100000 (bias +0x1000), their reset bits at isp-fe-sysreg
+ * +0x500 (bit n for slave n), PMU isolation 0x3ebc as gs201. The ultrawide
+ * is link 1 (four D-PHY lanes on slave 1; the camera HAL's module table),
+ * its link registers at 0x1c050000 and interrupt SPI 468 (ctx1). Frames
+ * reach memory through the CSIS core (isp-fe +0x20000, SPI 479), image
+ * LoCH 0 (CAMERA-RX-RESEARCH.md 2c).
+ * gs201_csis and phy_gs201_mipi_dcphy are blacklisted at boot; the
+ * bring-up test loads them by hand.
+ */
+&soc {
+	ispfe_sysreg: syscon@1c020000 {
+		compatible = "google,zumapro-ispfe-sysreg", "syscon";
+		reg = <0x0 0x1c020000 0x10000>;
+	};
+
+	csis_dcphy: phy@1c100000 {
+		compatible = "google,zumapro-mipi-dcphy-rx";
+		reg = <0x0 0x1c100000 0x4000>;
+		#phy-cells = <1>;
+		samsung,pmu-syscon = <&pmu_system_controller 0x3ebc>;
+		google,reset-sysreg = <&ispfe_sysreg 0x500>;
+		firmware-name = "omamobile/camera/zumapro-dcphy.bin";
+	};
+
+	csis_uw: csis@1c050000 {
+		compatible = "google,zumapro-csis";
+		reg = <0x0 0x1c050000 0x1000>, <0x0 0x1c320000 0x2000>;
+		reg-names = "link", "core";
+		interrupts = <GIC_SPI 468 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 479 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "link", "core";
+		phys = <&csis_dcphy 1>;
+		google,csis-link = <1>;
+		/* INT DVFS (ACPM domain 1), the ISP-FE NOC clock's rail, then the clock */
+		clocks = <&acpm_ipc 1>, <&cmu_top CLK_DOUT_ISPFE_NOC>;
+		clock-names = "int", "fe";
+
+		port {
+			csis_uw_in: endpoint {
+				remote-endpoint = <&cam_uw_out>;
+				data-lanes = <1 2 3 4>;
+			};
+		};
+	};
+};
+
+&cam_uw_out {
+	remote-endpoint = <&csis_uw_in>;
+};
+
+/*
+ * The front camera's receiver: link 6 (four D-PHY lanes on slave 5 with
+ * slave 6's clock lane), link registers at 0x1c0a0000, SPI 473 (ctx6).
+ */
+&soc {
+	csis_front: csis@1c0a0000 {
+		compatible = "google,zumapro-csis";
+		reg = <0x0 0x1c0a0000 0x1000>, <0x0 0x1c320000 0x2000>;
+		reg-names = "link", "core";
+		interrupts = <GIC_SPI 473 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 479 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "link", "core";
+		phys = <&csis_dcphy 6>;
+		google,csis-link = <6>;
+		/* INT DVFS (ACPM domain 1), the ISP-FE NOC clock's rail, then the clock */
+		clocks = <&acpm_ipc 1>, <&cmu_top CLK_DOUT_ISPFE_NOC>;
+		clock-names = "int", "fe";
+
+		port {
+			csis_front_in: endpoint {
+				remote-endpoint = <&cam_front_out>;
+				data-lanes = <1 2 3 4>;
+			};
+		};
+	};
+};
+
+/*
+ * CPU idle: the per-core C2 state, stock's parameters (overlays/tegu-cpuidle-c2.dtso).
+ * TF-A accepts it once PMU_INFORM0 allows C2 (exynos-pmu writes it at probe on zuma).
+ */
+&{/cpus} {
+	idle-states {
+		entry-method = "psci";
+
+		tegu_a520_cpu_sleep: cpu-a520-sleep {
+			idle-state-name = "c2";
+			compatible = "arm,idle-state";
+			arm,psci-suspend-param = <0x0010000>;
+			local-timer-stop;
+			entry-latency-us = <70>;
+			exit-latency-us = <160>;
+			min-residency-us = <2000>;
+		};
+
+		tegu_a720_cpu_sleep: cpu-a720-sleep {
+			idle-state-name = "c2";
+			compatible = "arm,idle-state";
+			arm,psci-suspend-param = <0x0010000>;
+			local-timer-stop;
+			entry-latency-us = <150>;
+			exit-latency-us = <190>;
+			min-residency-us = <2500>;
+		};
+
+		tegu_x4_cpu_sleep: cpu-x4-sleep {
+			idle-state-name = "c2";
+			compatible = "arm,idle-state";
+			arm,psci-suspend-param = <0x0010000>;
+			local-timer-stop;
+			entry-latency-us = <235>;
+			exit-latency-us = <220>;
+			min-residency-us = <3500>;
+		};
+	};
+};
+
+&cpu0 { cpu-idle-states = <&tegu_a520_cpu_sleep>; };
+&cpu1 { cpu-idle-states = <&tegu_a520_cpu_sleep>; };
+&cpu2 { cpu-idle-states = <&tegu_a520_cpu_sleep>; };
+&cpu3 { cpu-idle-states = <&tegu_a520_cpu_sleep>; };
+&cpu4 { cpu-idle-states = <&tegu_a720_cpu_sleep>; };
+&cpu5 { cpu-idle-states = <&tegu_a720_cpu_sleep>; };
+&cpu6 { cpu-idle-states = <&tegu_a720_cpu_sleep>; };
+&cpu7 { cpu-idle-states = <&tegu_x4_cpu_sleep>; };
+
+/*
+ * The 9a's NFC controller is an ST54L (NFC and eSE in one chip): its chip
+ * enable, gpa0-1, powers the whole chip. Stock's st54spi eSE driver raises
+ * it at probe (Google's zuma-tegu-ese.dtsi, ese_chip_enable-gpio); st-nci
+ * knows nothing of it, so a hog holds it high. With it high the chip ACKs
+ * at 0x08 and answers CORE_RESET (2026-10-26, logs/tegu-nfc-20261026/).
+ */
+&gpa0 {
+	nfc-chip-enable-hog {
+		gpio-hog;
+		gpios = <1 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "nfc-chip-enable";
+	};
+};
+
+&hsi2c9 {
+	/*
+	 * The ST54L speaks plain NCI over I2C (a 3-byte header, then the
+	 * payload; CORE_RESET answered 60 00 ... with the chip enabled), not
+	 * the NDLC framing of st-nci's ST21NFCB, whose init timed out. The
+	 * kernel's generic plain-NCI I2C transport is nxp-nci's; its "enable"
+	 * line is the ST chip's RST_N (high = run), and the interrupt is
+	 * level-high, held while a frame is pending.
+	 */
+	tegu_nfc: nfc@8 {
+		compatible = "st,st54l", "nxp,nxp-nci-i2c";
+		reg = <0x08>;
+		clocks = <&pmu_system_controller 0>;
+		interrupt-parent = <&gpa7>;
+		interrupts = <5 IRQ_TYPE_LEVEL_HIGH>;
+		enable-gpios = <&gph1 6 GPIO_ACTIVE_HIGH>;
+		status = "okay";
+	};
+};
+
+&pinctrl_hsi2 {
+	status = "okay";
+};
+
+/*
+ * The main PMIC's interrupt: GIC SPI 74 (stock's s2mpg14mfd@0), latched by
+ * the VGPIO2AP block at 0x15090000 (Google's st21nfc.c SYSREG_VGPIO2AP,
+ * INTC0_IPEND 0x290), which the sec-irq driver acknowledges. Gives the RTC
+ * its alarm, the first wake source for suspend.
+ */
+&soc {
+	sysreg_vgpio2ap: syscon@15090000 {
+		compatible = "google,zumapro-vgpio2ap-sysreg", "syscon";
+		reg = <0x0 0x15090000 0x1000>;
+	};
+};
+
+&pmic_main {
+	interrupts = <GIC_SPI 74 IRQ_TYPE_LEVEL_HIGH>;
+	google,vgpio2ap-sysreg = <&sysreg_vgpio2ap>;
+	wakeup-source;
+};
+
+/*
+ * The Wi-Fi chip's DMA goes through a restricted pool (bounce buffers in
+ * this 16 MiB region, as cheetah's W4), because the HSI2 SysMMU and S2MPU
+ * put PCIe and UFS on one VID and must not enforce on it. The endpoint's
+ * memory-region in the PCIe1 overlay points here. Reserved-memory on this
+ * SoC: two address cells, one size cell (12-byte entries), two-cell alignment.
+ */
+&{/reserved-memory} {
+	wifi_dma_pool: wifi-dma-pool {
+		compatible = "restricted-dma-pool";
+		size = <0x01000000>;
+		alignment = <0x0 0x00200000>;
+		alloc-ranges = <0x0 0x80000000 0x80000000>;
+	};
+};
+
+/*
+ * Suspend: the DesignWare core touches its link registers (dwc3_phy_setup)
+ * before it initialises the PHY, and after a suspend the PHY driver has
+ * turned CLK_GOUT_HSI0_USB_SUBCTL off (the zuma PHY's "phy" clock, which
+ * also clocks the sub-control/link register path), so the first register
+ * access on resume hung the SoC. Let the core hold that clock itself, with
+ * its own three, so it is back on before any register access.
+ */
+&usb {
+	clocks = <&cmu_hsi0 CLK_GOUT_HSI0_USB_LINK>,
+		 <&cmu_hsi0 CLK_MOUT_HSI0_USB20_REF>,
+		 <&cmu_hsi0 CLK_GOUT_HSI0_USB_SUSPEND>,
+		 <&cmu_hsi0 CLK_GOUT_HSI0_USB_SUBCTL>;
+	clock-names = "bus_early", "ref", "suspend", "subctl";
+};
+
+/*
+ * The Power key wakes the phone from s2idle: gpio-keys arms its EINT for wake
+ * only with wakeup-source (2026-10-26: asleep with the key pressed, the key's
+ * interrupt stayed at 0 and only the RTC alarm woke it).
+ */
+&{/gpio-keys/key-power} {
+	wakeup-source;
+};
+
+/*
+ * FAR_ALIVE GPIO provider (FAR-ALIVE-PLAN gate "GPIO provider"): GPA5
+ * carries the modem's PS_HOLD, CP-to-AP wake and PHONE_ACTIVE (pins 0-2),
+ * WLAN and Bluetooth host wake (3, 6) and the GNSS request (4). ABL leaves
+ * the APM gate on (clk_summary, 2026-10-27). FA1 bound the provider
+ * alone; FA2 adds the bank's EINTs. No pin states or consumers yet.
+ */
+&pinctrl_far_alive {
+	pinctrl-names = "default";
+	pinctrl-0 = <&cp2ap_float>, <&cp2ap_wakeup_up>;
+	status = "okay";
+
+	/*
+	 * ABL leaves GPA5 pulled down, which hid the modem's cp2ap lines
+	 * (MODEM-PLAN M2.1, 2026-10-27): ps-hold and phone-active float as in
+	 * stock, cp2ap-wakeup is pulled up as cheetah's ABL leaves it.
+	 */
+	cp2ap_float: cp2ap-float-pins {
+		samsung,pins = "gpa5-0", "gpa5-2";
+		samsung,pin-pud = <0>;
+	};
+
+	cp2ap_wakeup_up: cp2ap-wakeup-up-pins {
+		samsung,pins = "gpa5-1";
+		samsung,pin-pud = <3>;
+	};
+};
+
+/* PCIe channel 0 (the modem link), stock's states; selected by its driver */
+&pinctrl_hsi1 {
+	pcie0_clkreq: pcie0-clkreq-pins {
+		samsung,pins = "gph0-1";
+		samsung,pin-function = <2>;
+		samsung,pin-pud = <3>;
+		samsung,pin-drv = <3>;
+		samsung,pin-con-pdn = <3>;
+		samsung,pin-pud-pdn = <3>;
+	};
+
+	pcie0_perst: pcie0-perst-pins {
+		samsung,pins = "gph0-0";
+		samsung,pin-function = <1>;
+		samsung,pin-drv = <3>;
+		samsung,pin-con-pdn = <3>;
+	};
+};
+
+/* EINT50..57 = GIC SPI 60..67 (Google's zumapro.h); no consumer yet */
+&gpa5 {
+	interrupt-controller;
+	#interrupt-cells = <2>;
+	interrupts = <GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 61 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 62 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 63 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 64 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 66 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH>;
+};
+
+/*
+ * GNSS (MODEM-PLAN F5, K5, K6): the Kepler core inside the S5300 talks to
+ * the AP over HSI0 USI3's SPI (stock's spi_21 and gnss@0, 3.125 MHz) with a
+ * request/ready handshake: gnss2ap on gpa5-4 (its EINT), ap2gnss on
+ * gpp2-3. Bound by gnss_spi and gnssif (ported from Google's gnssif_spi),
+ * which nothing loads yet; the CP must be ONLINE before gnssd talks to it.
+ */
+&usi3_hsi0 {
+	status = "okay";
+};
+
+&spi21 {
+	status = "okay";
+
+	gnss@0 {
+		compatible = "samsung,gnss-spi";
+		reg = <0>;
+		spi-max-frequency = <3125000>;
+
+		/*
+		 * With stock's delay 0, about half the bytes from Kepler came
+		 * one bit late ("68 43" read as "34 21", G2 2026-10-27): its
+		 * data changes on our sampling edge. Sample half a clock later.
+		 */
+		controller-data {
+			samsung,spi-feedback-delay = <2>;
+		};
+	};
+};
+
+/ {
+	gnssif {
+		compatible = "samsung,exynos-gnss";
+		device,name = "KEPLER";
+		device_node_name = "gnss_ipc";
+		gnss2ap-spi-gpios = <&gpa5 4 GPIO_ACTIVE_HIGH>;
+		ap2gnss-spi-gpios = <&gpp2 3 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+/*
+ * Bluetooth HOST_WAKE on GPA5 pin 6 (stock's goog,nitrous host-wakeup-gpios,
+ * active high), available since FAR_ALIVE is bound: hci_bcm takes it as its
+ * "host-wakeup" interrupt, which turns on its runtime PM (sleep mode with
+ * device-wakeup on gpn9-0) and lets the controller wake the AP.
+ */
+&bluetooth {
+	interrupt-parent = <&gpa5>;
+	interrupts = <6 IRQ_TYPE_EDGE_RISING>;
+	interrupt-names = "host-wakeup";
+};
+
+/* The GPU as a cooling device for gpu-thermal's cooling map */
+&gpu {
+	#cooling-cells = <2>;
+};
+
+/*
+ * Fingerprint sensor (Goodix under-display, FINGERPRINT-PLAN F6): the lines
+ * the AP drives, as Google's GPL zumapro-tegu-udfps.dtsi: the event line on
+ * gpa7-6 and the reset on gpp1-0 (active low; the touchscreen's reset is
+ * gpp1-1 in the same bank). The sensor's SPI belongs to the secure world,
+ * and its 3.3 V (S2MPG15 LDO15S) stays on from the bootloader, so the node
+ * has no bus and no supply. The driver (goodix-fp) is not installed where
+ * it could autoload: it is loaded by hand for F6b.
+ */
+&pinctrl_alive {
+	fp_irq: fp-irq-pins {
+		samsung,pins = "gpa7-6";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_EINT>;
+	};
+};
+
+&pinctrl_peric0 {
+	fp_rst: fp-rst-pins {
+		samsung,pins = "gpp1-0";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_OUTPUT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
+		samsung,pin-con-pdn = <EXYNOS_PIN_PDN_PREV>;
+		samsung,pin-pud-pdn = <EXYNOS_PIN_PULL_NONE>;
+	};
+};
+
+/ {
+	fingerprint {
+		compatible = "goodix,g7-udfps";
+		interrupt-parent = <&gpa7>;
+		interrupts = <6 IRQ_TYPE_EDGE_RISING>;
+		reset-gpios = <&gpp1 0 GPIO_ACTIVE_LOW>;
+		pinctrl-0 = <&fp_irq &fp_rst>;
+		pinctrl-names = "default";
+	};
+};
+
+/* The SoC thermal sensors, read through ACPM (gs101_acpm_tmu, zumapro). */
+&acpm_ipc {
+	tegu_tmu: thermal-sensor {
+		compatible = "google,zumapro-acpm-tmu";
+		#thermal-sensor-cells = <1>;
+	};
+};
+
+/*
+ * USB-C: the MAX77779 TCPC (maxim,max77779-tcpc, tcpci_maxim) at 0x25 on the
+ * gauge bus, interrupt gpa8-3 active low (stock overlay max77759tcpc@25).
+ * Sink only, no link to dwc3 yet: the USB role stays as it is (USB-PLAN).
+ */
+&pinctrl_alive {
+	usb_pd_irq: usb-pd-irq-pins {
+		samsung,pins = "gpa8-3";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_EINT>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_UP>;
+		samsung,pin-drv = <0>;
+	};
+};
+
+&hsi2c6 {
+	usb_tcpc: tcpc@25 {
+		compatible = "maxim,max77779-tcpc";
+		reg = <0x25>;
+		interrupt-parent = <&gpa8>;
+		interrupts = <3 IRQ_TYPE_LEVEL_LOW>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&usb_pd_irq>;
+
+		connector {
+			compatible = "usb-c-connector";
+			label = "USB-C";
+			data-role = "dual";
+			power-role = "sink";
+			self-powered;
+			op-sink-microwatt = <2600000>;
+			sink-pdos = <PDO_FIXED(5000, 3000, PDO_FIXED_USB_COMM)>;
+		};
+	};
+};
+
+/*
+ * USB host mode trial (ot1): the core becomes dual-role and exposes a role
+ * switch, starting as a peripheral as before. Nothing switches it yet: the
+ * role is set by hand (/sys/class/usb_role) until the TCPC is linked.
+ */
+&usb {
+	dr_mode = "otg";
+	usb-role-switch;
+	role-switch-default-mode = "peripheral";
+};
+
+/*
+ * USI10 as I2C (ot1): the bus of the RT9471, whose boost makes the USB-C
+ * port VBUS in host mode (Google: hsi2c_10, rt-swchg@5b; SPI 658, pins
+ * gpp20-0/1 function 2, sysreg PERIC1 offset 0x8). Bus only, no client yet.
+ */
+&pinctrl_peric1 {
+	hsi2c10_bus: hsi2c10-bus-pins {
+		samsung,pins = "gpp20-0", "gpp20-1";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_2>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
+		samsung,pin-drv = <0>;
+	};
+};
+
+&{/soc} {
+	usi10: usi@10ca00c0 {
+		compatible = "google,zumapro-usi", "samsung,exynos850-usi";
+		reg = <0x0 0x10ca00c0 0x20>;
+		clocks = <&cmu_peric1 CLK_GOUT_PERIC1_USI10_PCLK>,
+			 <&cmu_peric1 CLK_GOUT_PERIC1_USI10_IPCLK>;
+		clock-names = "pclk", "ipclk";
+		samsung,sysreg = <&sysreg_peric1 0x8>;
+		samsung,mode = <USI_MODE_I2C>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x10ca0000 0x0 0x10ca0000 0x1000>;
+
+		hsi2c10: i2c@10ca0000 {
+			compatible = "google,zumapro-hsi2c",
+				     "samsung,exynosautov9-hsi2c";
+			reg = <0x10ca0000 0xc0>;
+			interrupts = <GIC_SPI 658 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cmu_peric1 CLK_GOUT_PERIC1_USI10_IPCLK>,
+				 <&cmu_peric1 CLK_GOUT_PERIC1_USI10_PCLK>;
+			clock-names = "hsi2c", "hsi2c_pclk";
+			pinctrl-names = "default";
+			pinctrl-0 = <&hsi2c10_bus>;
+			clock-frequency = <400000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+	};
+};
+
+/*
+ * Fingerprint (fp2): the sensor's 3.3 V, S2MPG15 LDO15S, always on as on
+ * stock (GPL zumapro-tegu-udfps.dtsi). Off at hand-off, as on cheetah: the
+ * trusted app read chip id 0 until it is on. Its voltage is left as found.
+ */
+&pmic_sub {
+	regulators {
+		udfps_3v3: ldo15s {
+			regulator-name = "udfps-3v3";
+			regulator-always-on;
+		};
+	};
+};
+
+/* nf2: the PMU provides the NFC controller's clock pad (clock 0) */
+&pmu_system_controller {
+	#clock-cells = <1>;
+};
+
+/*
+ * gn2: the GNSS rails, on as stock turns them on (regulator-initial-mode 0,
+ * which Google's s2mpg15 driver maps to on): off at hand-off, and the
+ * Kepler GNSS core's RF front end can't calibrate without them.
+ */
+&pmic_sub {
+	regulators {
+		gnss_core: ldo9s {
+			regulator-name = "gnss-core";
+			regulator-always-on;
+		};
+
+		gnss_rf: ldo10s {
+			regulator-name = "gnss-rf";
+			regulator-always-on;
+		};
+
+		gnss_aux: ldo11s {
+			regulator-name = "gnss-aux";
+			regulator-always-on;
+		};
+	};
+};
+
+/*
+ * ps1: pstore on the region stock uses for it (zumapro-rmem.dtsi
+ * ramoops_mem@fd3ff000), so a hang or panic leaves its console behind.
+ */
+&ramoops_reserved {
+	compatible = "ramoops";
+	console-size = <0x200000>;
+	pmsg-size = <0x100000>;
+	record-size = <0x40000>;
+};
+
+/*
+ * gt1 (kernel #119 in board form): the MAX77779 bus and fuel gauge enabled
+ * in the DT itself, as #119 has them, instead of at runtime.
+ */
+&usi6 {
+	status = "okay";
+};
+
+&hsi2c6 {
+	status = "okay";
+};
+
+&fuel_gauge {
+	status = "okay";
+};
+
+/*
+ * bt2 (kernel #122 in board form): the APM UART and the Bluetooth node
+ * enabled in the DT itself, instead of at runtime.
+ */
+&usi_apm1 {
+	status = "okay";
+};
+
+&uart18 {
+	status = "okay";
+};
+
+&bluetooth {
+	status = "okay";
+};
+
+
+/*
+ * USB-C host mode (ot6, the ot2 fragment): the RT9471's OTG boost on hsi2c10, the MAX77779
+ * charger's chgin-otg regulator on top of it (charger to standby, then the
+ * boost, as Google's ext-otg-only use case), the TCPC sourcing VBUS from
+ * it as a dual-role port that prefers sink, and the port's data role
+ * driving the dwc3 role switch. Source PDO from stock (fixed 5 V, 900 mA).
+ */
+&hsi2c10 {
+	otg_boost: regulator@5b {
+		compatible = "omamobile,tegu-rt9471-boost";
+		reg = <0x5b>;
+		regulator-name = "otg-boost";
+	};
+};
+
+&hsi2c6 {
+	charger@69 {
+		compatible = "maxim,max77779-charger";
+		reg = <0x69>;
+		otg-boost-supply = <&otg_boost>;
+
+		chgin_otg: chgin-otg-regulator {
+			regulator-name = "chgin-otg";
+		};
+	};
+};
+
+&usb_tcpc {
+	vbus-supply = <&chgin_otg>;
+
+	connector {
+		power-role = "dual";
+		try-power-role = "sink";
+		source-pdos = <PDO_FIXED(5000, 900, PDO_FIXED_USB_COMM | PDO_FIXED_DATA_SWAP)>;
+
+		port {
+			typec_hs: endpoint {
+				remote-endpoint = <&usb_hs>;
+			};
+		};
+	};
+};
+
+&usb {
+	port {
+		usb_hs: endpoint {
+			remote-endpoint = <&typec_hs>;
+		};
+	};
+};
+
+/* gn3 (DTB only): tell the AoC firmware the GNSS is Samsung integrated (kAOCGnssType 2), as Google GPL zumapro-phone-ignss.dtsi */
+&aoc {
+	gnss-type = <2>;
+};
