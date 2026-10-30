@@ -27,12 +27,28 @@
  * software (stock: the vendor driver's swap-mode), so the bytes go on the
  * wire in memory order. CHPP pads its frames to a multiple of 4.
  */
+/*
+ * omamobile test (G3-A2): word32=1 sends 32-bit words with no software
+ * swap, for a controller that does the swap itself (spi-s3c64xx with
+ * Google's swap-mode programmed in SWAP_CFG: bytes and half-words of each
+ * word swapped on TX and RX, so the bytes leave in memory order, as stock's
+ * vendor driver does). Default off: the 8-bit path is unchanged.
+ */
+static bool word32;
+module_param(word32, bool, 0444);
+MODULE_PARM_DESC(word32, "32-bit words, no software swap (the controller swaps)");
+
+static inline unsigned int gnss_spi_bpw(void)
+{
+	return word32 ? 32 : SPI_BITS_PER_WORD;
+}
+
 static void gnss_spi_swab(void *buf, unsigned int size)
 {
 	u32 *w = buf;
 	unsigned int i;
 
-	if (SPI_BITS_PER_WORD != 32)
+	if (word32 || SPI_BITS_PER_WORD != 32)
 		return;
 
 	for (i = 0; i < size / 4; i++)
@@ -225,7 +241,7 @@ static int gnss_spi_xfer(const char *tx, char *rx, unsigned int size)
 	char *tmp = NULL;
 	int ret;
 
-	if (SPI_BITS_PER_WORD == 32 && size % 4)
+	if (gnss_spi_bpw() == 32 && size % 4)
 		return -EINVAL;
 	if (tx) {
 		tmp = kmemdup(tx, size, GFP_KERNEL);
@@ -243,7 +259,7 @@ static int gnss_spi_xfer(const char *tx, char *rx, unsigned int size)
 		t[i].len = min(GNSS_SPI_PIECE, size - off);
 		t[i].tx_buf = tmp ? tmp + off : NULL;
 		t[i].rx_buf = rx ? rx + off : NULL;
-		t[i].bits_per_word = SPI_BITS_PER_WORD;
+		t[i].bits_per_word = gnss_spi_bpw();
 		spi_message_add_tail(&t[i], &msg);
 	}
 	gnss_spi_hold_div();
