@@ -90,6 +90,14 @@ static int div = -1;
 static int rx_cpha;
 module_param(rx_cpha, int, 0444);
 /*
+ * omamobile test (G3-A3): spi_mode 0..3 replaces the device tree's CPOL and
+ * CPHA for every transfer, for a clock-phase sweep (RX arrived 2, 4 and 6
+ * bits late in G3-A2); -1 keeps the device tree's mode.
+ */
+static int spi_mode = -1;
+module_param(spi_mode, int, 0444);
+MODULE_PARM_DESC(spi_mode, "0..3: SPI mode (CPOL/CPHA) for all transfers; -1 keeps the DT's");
+/*
  * realign=1: Kepler's data comes in exactly one bit late with feedback
  * delay 3 (MODEM-PLAN G3), so shift every received buffer left one bit.
  */
@@ -385,11 +393,16 @@ static int gnss_spi_probe(struct spi_device *spi)
 	}
 	if (speed_hz > 0)
 		spi->max_speed_hz = speed_hz;
+	if (spi_mode >= 0 && spi_mode <= 3)
+		spi->mode = (spi->mode & ~(SPI_CPHA | SPI_CPOL)) | spi_mode;
 	if (spi_setup(spi)) {
 		gif_err("ERR! spi_setup fail\n");
 		ret = -EINVAL;
 		goto err_setup;
 	}
+	gif_info("spi mode 0x%x (CPOL %d, CPHA %d)%s\n", spi->mode,
+		 !!(spi->mode & SPI_CPOL), !!(spi->mode & SPI_CPHA),
+		 spi_mode >= 0 ? " from spi_mode" : "");
 	if (fb_delay >= 0 && spi->controller_data) {
 		struct s3c64xx_spi_csinfo *cs = spi->controller_data;
 
