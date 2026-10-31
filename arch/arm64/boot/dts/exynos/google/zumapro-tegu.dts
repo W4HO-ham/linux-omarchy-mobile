@@ -518,12 +518,31 @@
 		samsung,pin-drv = <0>;
 	};
 
+	spi21_bus: spi21-bus-pins {
+		samsung,pins = "gpp22-0", "gpp22-1", "gpp22-3";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_2>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
+		samsung,pin-drv = <3>;
+	};
+
+	spi21_miso: spi21-miso-pins {
+		samsung,pins = "gpp22-2";
+		samsung,pin-function = <EXYNOS_PIN_FUNC_2>;
+		samsung,pin-pud = <EXYNOS_PIN_PULL_DOWN>;
+		samsung,pin-drv = <3>;
+	};
+
 	torch_enable: torch-enable-pins {
 		samsung,pins = "gpp24-1";
 		samsung,pin-function = <EXYNOS_PIN_FUNC_OUTPUT>;
 		samsung,pin-pud = <EXYNOS_PIN_PULL_NONE>;
 		samsung,pin-drv = <0>;
 	};
+};
+
+&spi21 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi21_bus &spi21_miso>;
 };
 
 &pmu_system_controller {
