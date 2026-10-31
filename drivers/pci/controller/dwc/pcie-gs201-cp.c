@@ -137,6 +137,7 @@ MODULE_PARM_DESC(watch_lines, "Log every edge on the modem's cp2ap lines, with i
 #define CP_LINK_L1SS_CONTROL2		0x1a0
 #define CP_LINK_L1SS_ENABLE		GENMASK(3, 0)
 #define CP_LINK_TCOMMON_32US		(0x20 << 8)
+#define CP_LINK_TCOMMON_MASK		GENMASK(15, 8)
 #define CP_LINK_TPOWERON_200US		0xa1
 #define CP_EP_ACK_F_ASPM_CONTROL	0x70c
 #define CP_EP_L1_ENTRANCE_LATENCY	GENMASK(29, 27)
@@ -1566,62 +1567,90 @@ static struct pci_dev *cp_ep_get(struct gs201_pcie_cp *cp)
  */
 static int cp_l1ss_set(struct gs201_pcie_cp *cp, bool enable)
 {
-	struct pci_dev *ep __free(pci_dev_put) = cp_ep_get(cp);
-	struct dw_pcie *pci = &cp->pci;
-	u16 ep_l1ss, lnkctl;
-	u32 val;
+	struct pci_dev *rp, *ep;
+	u16 rp_cap, ep_cap;
+	u32 ctl1;
+	int ret = 0;
 
-	if (!ep)
+	if (!cp->bridge || !cp->bridge->bus)
 		return -ENODEV;
-	ep_l1ss = pci_find_ext_capability(ep, PCI_EXT_CAP_ID_L1SS);
-	if (!ep_l1ss || !cp->exp_cap)
-		return -EOPNOTSUPP;
-
-	if (!enable) {
-		pcie_capability_clear_word(ep, PCI_EXP_LNKCTL,
-					   PCI_EXP_LNKCTL_ASPM_L1);
-		val = dw_pcie_readl_dbi(pci, cp->exp_cap + PCI_EXP_LNKCTL);
-		val &= ~PCI_EXP_LNKCTL_ASPMC;
-		dw_pcie_writel_dbi(pci, cp->exp_cap + PCI_EXP_LNKCTL, val);
-		pci_clear_and_set_config_dword(ep, ep_l1ss + PCI_L1SS_CTL1,
-					       CP_LINK_L1SS_ENABLE, 0);
-		val = dw_pcie_readl_dbi(pci, CP_LINK_L1SS_CONTROL);
-		val &= ~CP_LINK_L1SS_ENABLE;
-		dw_pcie_writel_dbi(pci, CP_LINK_L1SS_CONTROL, val);
-
-		return 0;
+	rp = pci_get_slot(cp->bridge->bus, 0);
+	ep = cp_ep_get(cp);
+	if (!rp || !ep) {
+		ret = -ENODEV;
+		goto out;
 	}
 
-	/* The root port: LTR, then TCommon and L1SS, then TPowerOn. */
-	val = dw_pcie_readl_dbi(pci, cp->exp_cap + PCI_EXP_DEVCTL2);
-	val |= PCI_EXP_DEVCTL2_LTR_EN;
-	dw_pcie_writel_dbi(pci, cp->exp_cap + PCI_EXP_DEVCTL2, val);
-	val = dw_pcie_readl_dbi(pci, CP_LINK_L1SS_CONTROL);
-	val |= CP_LINK_TCOMMON_32US | CP_LINK_L1SS_ENABLE;
-	dw_pcie_writel_dbi(pci, CP_LINK_L1SS_CONTROL, val);
-	dw_pcie_writel_dbi(pci, CP_LINK_L1SS_CONTROL2, CP_LINK_TPOWERON_200US);
+	/*
+	 * The capability's offset is read from each end rather than taken
+	 * from Google's driver: on this controller it sits at 0x160, not the
+	 * 0x19c their register map uses, and writing their offset lands on
+	 * unrelated registers and reads back as zero (the Pixel 9a's
+	 * link-down trace showed exactly that).
+	 */
+	rp_cap = pci_find_ext_capability(rp, PCI_EXT_CAP_ID_L1SS);
+	ep_cap = pci_find_ext_capability(ep, PCI_EXT_CAP_ID_L1SS);
+	if (!rp_cap || !ep_cap || !cp->exp_cap) {
+		ret = -EOPNOTSUPP;
+		goto out;
+	}
 
-	/* The endpoint: LTR, TPowerOn, entrance latency, then L1SS. */
+	if (!enable) {
+		/* ASPM first, so nothing enters a substate being torn down. */
+		pcie_capability_clear_word(ep, PCI_EXP_LNKCTL,
+					   PCI_EXP_LNKCTL_ASPM_L1);
+		pcie_capability_clear_word(rp, PCI_EXP_LNKCTL,
+					   PCI_EXP_LNKCTL_ASPM_L1);
+		pci_clear_and_set_config_dword(ep, ep_cap + PCI_L1SS_CTL1,
+					       CP_LINK_L1SS_ENABLE, 0);
+		pci_clear_and_set_config_dword(rp, rp_cap + PCI_L1SS_CTL1,
+					       CP_LINK_L1SS_ENABLE, 0);
+		goto out;
+	}
+
+	/* The root port: LTR, TCommon and the substates, then TPowerOn. */
+	pcie_capability_set_word(rp, PCI_EXP_DEVCTL2, PCI_EXP_DEVCTL2_LTR_EN);
+	pci_clear_and_set_config_dword(rp, rp_cap + PCI_L1SS_CTL1,
+				       CP_LINK_L1SS_ENABLE | CP_LINK_TCOMMON_MASK,
+				       CP_LINK_TCOMMON_32US |
+				       (cp_l1ss_mask & CP_LINK_L1SS_ENABLE));
+	pci_write_config_dword(rp, rp_cap + PCI_L1SS_CTL2, cp_tpoweron);
+
+	/* The endpoint: LTR, TPowerOn, entrance latency, then the substates. */
 	pcie_capability_set_word(ep, PCI_EXP_DEVCTL2, PCI_EXP_DEVCTL2_LTR_EN);
-	pci_write_config_dword(ep, ep_l1ss + PCI_L1SS_CTL2,
-			       CP_LINK_TPOWERON_200US);
+	pci_write_config_dword(ep, ep_cap + PCI_L1SS_CTL2, cp_tpoweron);
 	pci_clear_and_set_config_dword(ep, CP_EP_ACK_F_ASPM_CONTROL,
 				       CP_EP_L1_ENTRANCE_LATENCY,
 				       CP_EP_L1_ENTRANCE_LATENCY_64US);
-	pci_clear_and_set_config_dword(ep, ep_l1ss + PCI_L1SS_CTL1, 0,
-				       CP_LINK_L1SS_ENABLE);
+	pci_clear_and_set_config_dword(ep, ep_cap + PCI_L1SS_CTL1,
+				       CP_LINK_L1SS_ENABLE,
+				       cp_l1ss_mask & CP_LINK_L1SS_ENABLE);
 
-	/* ASPM L1 last, root port then endpoint, with common clock on both. */
-	val = dw_pcie_readl_dbi(pci, cp->exp_cap + PCI_EXP_LNKCTL);
-	val &= ~PCI_EXP_LNKCTL_ASPMC;
-	val |= PCI_EXP_LNKCTL_CCC | PCI_EXP_LNKCTL_ASPM_L1;
-	dw_pcie_writel_dbi(pci, cp->exp_cap + PCI_EXP_LNKCTL, val);
-	pcie_capability_read_word(ep, PCI_EXP_LNKCTL, &lnkctl);
-	lnkctl |= PCI_EXP_LNKCTL_CCC | PCI_EXP_LNKCTL_CLKREQ_EN |
-		  PCI_EXP_LNKCTL_ASPM_L1;
-	pcie_capability_write_word(ep, PCI_EXP_LNKCTL, lnkctl);
+	/* ASPM L1 last, so both ends are configured before the link uses it. */
+	pcie_capability_clear_and_set_word(rp, PCI_EXP_LNKCTL,
+					   PCI_EXP_LNKCTL_ASPMC,
+					   PCI_EXP_LNKCTL_CCC |
+					   PCI_EXP_LNKCTL_ASPM_L1);
+	pcie_capability_set_word(ep, PCI_EXP_LNKCTL,
+				 PCI_EXP_LNKCTL_CCC | PCI_EXP_LNKCTL_CLKREQ_EN |
+				 PCI_EXP_LNKCTL_ASPM_L1);
 
-	return 0;
+	if (cp_trace) {
+		pci_read_config_dword(rp, rp_cap + PCI_L1SS_CTL1, &ctl1);
+		dev_info(cp->dev, "L1SS on: root CTL1 %#x (cap %#x)\n",
+			 ctl1, rp_cap);
+		pci_read_config_dword(ep, ep_cap + PCI_L1SS_CTL1, &ctl1);
+		dev_info(cp->dev, "L1SS on: endpoint CTL1 %#x (cap %#x)\n",
+			 ctl1, ep_cap);
+	}
+
+out:
+	if (rp)
+		pci_dev_put(rp);
+	if (ep)
+		pci_dev_put(ep);
+
+	return ret;
 }
 
 /**
