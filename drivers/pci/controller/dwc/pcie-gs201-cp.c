@@ -127,6 +127,21 @@ MODULE_PARM_DESC(watch_lines, "Log every edge on the modem's cp2ap lines, with i
 #define CP_ELBI_MSTR_PEND_SEL_NAK	0x474
 #define CP_ELBI_DBI_L1_EXIT_DISABLE	0x1078
 
+/*
+ * L1 substates, from Google's exynos_pcie_rc_set_l1ss()
+ * (google-modules/soc/gs/drivers/pci/controller/dwc-whi/pcie-exynos-rc.c):
+ * the controller's own L1SS control pair, the endpoint's L1 entrance
+ * latency in its DWC core, and the timings Google programs for the modem.
+ */
+#define CP_LINK_L1SS_CONTROL		0x19c
+#define CP_LINK_L1SS_CONTROL2		0x1a0
+#define CP_LINK_L1SS_ENABLE		GENMASK(3, 0)
+#define CP_LINK_TCOMMON_32US		(0x20 << 8)
+#define CP_LINK_TPOWERON_200US		0xa1
+#define CP_EP_ACK_F_ASPM_CONTROL	0x70c
+#define CP_EP_L1_ENTRANCE_LATENCY	GENMASK(29, 27)
+#define CP_EP_L1_ENTRANCE_LATENCY_64US	(0x7 << 27)
+
 /* PMU PHY control (PHY_CTRL_PCIE_GEN4_0): bit 0 set = isolation bypassed */
 #define CP_PMU_PHY_BYPASS		BIT(0)
 
@@ -224,6 +239,7 @@ struct gs201_pcie_cp {
 	u8 exp_cap;			/* root port's PCIe capability */
 	u16 speed;			/* target link speed of the last link_up */
 	bool cp_powered;
+	bool l1ss_wanted;		/* the modem driver's last L1SS request */
 	u32 cycle;			/* link cycles, for the bring-up trace */
 	bool phy_inited;
 	bool phy_on;
@@ -270,6 +286,8 @@ MODULE_PARM_DESC(trace, "Number the link cycles and log each step (bring-up; def
 
 static struct gs201_pcie_cp *gs201_cp;
 static DEFINE_MUTEX(gs201_cp_lock);	/* gs201_cp against probe/remove */
+
+static int cp_l1ss_set(struct gs201_pcie_cp *cp, bool enable);
 
 static u32 cp_elbi_read(struct gs201_pcie_cp *cp, u32 reg)
 {
@@ -1162,6 +1180,14 @@ static int cp_secure_atu(struct gs201_pcie_cp *cp)
 		return -EIO;
 	cp->atu_done = true;
 	cp_cfg_allow(cp, true, true);
+	/*
+	 * The modem driver asks for L1 substates after a link up, but also
+	 * while the link is down, where the request is only remembered. Apply
+	 * it now that the endpoint is reachable, which needs the configuration
+	 * accessors open, hence after cp_cfg_allow().
+	 */
+	if (cp->l1ss_wanted && cp_l1ss_set(cp, true))
+		dev_warn_once(cp->dev, "L1 substates not enabled\n");
 
 	return 0;
 }
@@ -1510,16 +1536,124 @@ void gs201_pcie_cp_set_perst_level(int level)
 }
 EXPORT_SYMBOL_GPL(gs201_pcie_cp_set_perst_level);
 
+/*
+ * The endpoint, for the few settings that belong in its configuration space.
+ * The modem driver owns this device; this only reads and writes its config,
+ * which goes through the accessors above and so is refused while the link is
+ * down.
+ */
+static struct pci_dev *cp_ep_get(struct gs201_pcie_cp *cp)
+{
+	struct pci_bus *bus;
+
+	if (!cp->bridge || !cp->bridge->bus)
+		return NULL;
+	bus = pci_find_bus(pci_domain_nr(cp->bridge->bus), 1);
+
+	return bus ? pci_get_slot(bus, 0) : NULL;
+}
+
+/*
+ * Google's exynos_pcie_rc_set_l1ss(), reduced to the modem endpoint and to
+ * what the modem driver asks for: the LTR mechanism and L1SS on both ends,
+ * the entrance latency and TPowerOn Google programs, and ASPM L1 last, so
+ * the link only starts using the substates once both ends are configured.
+ * Undoing it clears ASPM first, for the same reason in reverse.
+ */
+static int cp_l1ss_set(struct gs201_pcie_cp *cp, bool enable)
+{
+	struct pci_dev *ep __free(pci_dev_put) = cp_ep_get(cp);
+	struct dw_pcie *pci = &cp->pci;
+	u16 ep_l1ss, lnkctl;
+	u32 val;
+
+	if (!ep)
+		return -ENODEV;
+	ep_l1ss = pci_find_ext_capability(ep, PCI_EXT_CAP_ID_L1SS);
+	if (!ep_l1ss || !cp->exp_cap)
+		return -EOPNOTSUPP;
+
+	if (!enable) {
+		pcie_capability_clear_word(ep, PCI_EXP_LNKCTL,
+					   PCI_EXP_LNKCTL_ASPM_L1);
+		val = dw_pcie_readl_dbi(pci, cp->exp_cap + PCI_EXP_LNKCTL);
+		val &= ~PCI_EXP_LNKCTL_ASPMC;
+		dw_pcie_writel_dbi(pci, cp->exp_cap + PCI_EXP_LNKCTL, val);
+		pci_clear_and_set_config_dword(ep, ep_l1ss + PCI_L1SS_CTL1,
+					       CP_LINK_L1SS_ENABLE, 0);
+		val = dw_pcie_readl_dbi(pci, CP_LINK_L1SS_CONTROL);
+		val &= ~CP_LINK_L1SS_ENABLE;
+		dw_pcie_writel_dbi(pci, CP_LINK_L1SS_CONTROL, val);
+
+		return 0;
+	}
+
+	/* The root port: LTR, then TCommon and L1SS, then TPowerOn. */
+	val = dw_pcie_readl_dbi(pci, cp->exp_cap + PCI_EXP_DEVCTL2);
+	val |= PCI_EXP_DEVCTL2_LTR_EN;
+	dw_pcie_writel_dbi(pci, cp->exp_cap + PCI_EXP_DEVCTL2, val);
+	val = dw_pcie_readl_dbi(pci, CP_LINK_L1SS_CONTROL);
+	val |= CP_LINK_TCOMMON_32US | CP_LINK_L1SS_ENABLE;
+	dw_pcie_writel_dbi(pci, CP_LINK_L1SS_CONTROL, val);
+	dw_pcie_writel_dbi(pci, CP_LINK_L1SS_CONTROL2, CP_LINK_TPOWERON_200US);
+
+	/* The endpoint: LTR, TPowerOn, entrance latency, then L1SS. */
+	pcie_capability_set_word(ep, PCI_EXP_DEVCTL2, PCI_EXP_DEVCTL2_LTR_EN);
+	pci_write_config_dword(ep, ep_l1ss + PCI_L1SS_CTL2,
+			       CP_LINK_TPOWERON_200US);
+	pci_clear_and_set_config_dword(ep, CP_EP_ACK_F_ASPM_CONTROL,
+				       CP_EP_L1_ENTRANCE_LATENCY,
+				       CP_EP_L1_ENTRANCE_LATENCY_64US);
+	pci_clear_and_set_config_dword(ep, ep_l1ss + PCI_L1SS_CTL1, 0,
+				       CP_LINK_L1SS_ENABLE);
+
+	/* ASPM L1 last, root port then endpoint, with common clock on both. */
+	val = dw_pcie_readl_dbi(pci, cp->exp_cap + PCI_EXP_LNKCTL);
+	val &= ~PCI_EXP_LNKCTL_ASPMC;
+	val |= PCI_EXP_LNKCTL_CCC | PCI_EXP_LNKCTL_ASPM_L1;
+	dw_pcie_writel_dbi(pci, cp->exp_cap + PCI_EXP_LNKCTL, val);
+	pcie_capability_read_word(ep, PCI_EXP_LNKCTL, &lnkctl);
+	lnkctl |= PCI_EXP_LNKCTL_CCC | PCI_EXP_LNKCTL_CLKREQ_EN |
+		  PCI_EXP_LNKCTL_ASPM_L1;
+	pcie_capability_write_word(ep, PCI_EXP_LNKCTL, lnkctl);
+
+	return 0;
+}
+
 /**
  * gs201_pcie_cp_l1ss() - allow or forbid L1 substates on the modem link
  * @enable: whether the modem driver allows them now
  *
- * Not implemented yet: L1 substates are never enabled on this link, which
- * is what the modem driver asks for while it boots the modem.
+ * The modem driver asks for them after every link up and withdraws them
+ * while it boots the modem. Without them the modem has no way to park an
+ * idle link, so it asks for the link to be powered off instead, which on
+ * the Pixel 9a means an isolate and un-isolate pair about twice a second
+ * under GNSS traffic (MODEM-PLAN G3-L1).
+ *
+ * A request that arrives before the link is up is remembered and applied
+ * after the next one, as Google's driver does with its pending mask.
+ *
+ * Return: 0, -ENODEV before probe, -EOPNOTSUPP if either end has no L1SS
+ * capability, -EAGAIN while the link is down (the request is kept).
  */
 int gs201_pcie_cp_l1ss(bool enable)
 {
-	return gs201_cp ? 0 : -ENODEV;
+	struct gs201_pcie_cp *cp = cp_get();
+	int ret;
+
+	if (!cp)			/* cp_get() holds cp->lock */
+		return -ENODEV;
+	cp->l1ss_wanted = enable;
+	if (!cp->link_up || !cp->atu_done) {
+		cp_put(cp);
+		return -EAGAIN;
+	}
+	ret = cp_l1ss_set(cp, enable);
+	if (ret)
+		dev_warn_once(cp->dev, "L1 substates: %d\n", ret);
+	cp_put(cp);
+
+	return ret;
 }
 EXPORT_SYMBOL_GPL(gs201_pcie_cp_l1ss);
 
