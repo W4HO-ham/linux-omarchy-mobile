@@ -313,6 +313,30 @@ static int gnss_spi_xfer(const char *tx, char *rx, unsigned int size)
 		}
 		gnss_spi_shlk(rx, size, gnss_spi_k);
 	}
+	if (rx && realign == 4 && ret >= 0 && !tx && size) {
+		/*
+		 * realign=4: as 3, but carry across reads instead of dropping the
+		 * last k bits: each output byte takes its high bits from the byte
+		 * before it (the previous read's last raw byte for the first), so
+		 * the stream stays continuous and byte-aligned, one byte later.
+		 */
+		static u8 prev;
+		u8 *b = rx;
+		int at = gnss_spi_preamble_k(b, size);
+		unsigned int i;
+		u8 last = b[size - 1];
+
+		if (at >= 0 && at != gnss_spi_k) {
+			gif_info("realign: Kepler bit offset %d -> %d\n", gnss_spi_k, at);
+			gnss_spi_k = at;
+		}
+		if (gnss_spi_k) {
+			for (i = size - 1; i > 0; i--)
+				b[i] = (b[i - 1] << gnss_spi_k) | (b[i] >> (8 - gnss_spi_k));
+			b[0] = (prev << gnss_spi_k) | (b[0] >> (8 - gnss_spi_k));
+		}
+		prev = last;
+	}
 	if (rx && realign == 2 && ret >= 0) {
 		int at = gnss_spi_preamble_at(rx, size);
 		u8 first = ((u8 *)rx)[0] >> 7;
