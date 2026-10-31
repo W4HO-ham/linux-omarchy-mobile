@@ -280,6 +280,10 @@ static const u8 cp_root_win_offs[] = {
 };
 
 /* The one modem link, for the modem driver's calls (gs201_pcie_cp_*()) */
+static bool cp_l1ss_allow;
+module_param_named(l1ss, cp_l1ss_allow, bool, 0644);
+MODULE_PARM_DESC(l1ss, "Honour the modem driver's L1 substate requests (bring-up; default: off). The modem forbids them while it boots and asks for them after every link up, and its last request in restore_state() is an unconditional enable, so acting on that during the ROM boot stops the image download: set this after the CP is ONLINE.");
+
 static bool cp_trace;
 module_param_named(trace, cp_trace, bool, 0644);
 MODULE_PARM_DESC(trace, "Number the link cycles and log each step (bring-up; default: off)");
@@ -1186,7 +1190,7 @@ static int cp_secure_atu(struct gs201_pcie_cp *cp)
 	 * it now that the endpoint is reachable, which needs the configuration
 	 * accessors open, hence after cp_cfg_allow().
 	 */
-	if (cp->l1ss_wanted && cp_l1ss_set(cp, true))
+	if (cp_l1ss_allow && cp->l1ss_wanted && cp_l1ss_set(cp, true))
 		dev_warn_once(cp->dev, "L1 substates not enabled\n");
 
 	return 0;
@@ -1639,18 +1643,16 @@ static int cp_l1ss_set(struct gs201_pcie_cp *cp, bool enable)
 int gs201_pcie_cp_l1ss(bool enable)
 {
 	struct gs201_pcie_cp *cp = cp_get();
-	int ret;
+	int ret = 0;
 
 	if (!cp)			/* cp_get() holds cp->lock */
 		return -ENODEV;
 	cp->l1ss_wanted = enable;
-	if (!cp->link_up || !cp->atu_done) {
-		cp_put(cp);
-		return -EAGAIN;
+	if (cp_l1ss_allow && cp->link_up && cp->atu_done) {
+		ret = cp_l1ss_set(cp, enable);
+		if (ret)
+			dev_warn_once(cp->dev, "L1 substates: %d\n", ret);
 	}
-	ret = cp_l1ss_set(cp, enable);
-	if (ret)
-		dev_warn_once(cp->dev, "L1 substates: %d\n", ret);
 	cp_put(cp);
 
 	return ret;
