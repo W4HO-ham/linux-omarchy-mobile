@@ -34,9 +34,13 @@
  * word swapped on TX and RX, so the bytes leave in memory order, as stock's
  * vendor driver does). Default off: the 8-bit path is unchanged.
  */
-static bool word32;
-module_param(word32, bool, 0444);
-MODULE_PARM_DESC(word32, "32-bit words, no software swap (the controller swaps)");
+/*
+ * word32=2: 32-bit words with the byte swap done here (swab32 on TX and RX),
+ * for a controller without swap-mode: tests whether the DT property is needed.
+ */
+static int word32;
+module_param(word32, int, 0444);
+MODULE_PARM_DESC(word32, "1: 32-bit words, the controller swaps; 2: 32-bit words, swapped in software");
 
 static inline unsigned int gnss_spi_bpw(void)
 {
@@ -48,7 +52,7 @@ static void gnss_spi_swab(void *buf, unsigned int size)
 	u32 *w = buf;
 	unsigned int i;
 
-	if (word32 || SPI_BITS_PER_WORD != 32)
+	if (word32 == 1 || (word32 != 2 && SPI_BITS_PER_WORD != 32))
 		return;
 
 	for (i = 0; i < size / 4; i++)
