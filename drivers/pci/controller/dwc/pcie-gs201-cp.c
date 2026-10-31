@@ -224,6 +224,7 @@ struct gs201_pcie_cp {
 	u8 exp_cap;			/* root port's PCIe capability */
 	u16 speed;			/* target link speed of the last link_up */
 	bool cp_powered;
+	u32 cycle;			/* link cycles, for the bring-up trace */
 	bool phy_inited;
 	bool phy_on;
 	bool link_up;
@@ -263,6 +264,10 @@ static const u8 cp_root_win_offs[] = {
 };
 
 /* The one modem link, for the modem driver's calls (gs201_pcie_cp_*()) */
+static bool cp_trace;
+module_param_named(trace, cp_trace, bool, 0644);
+MODULE_PARM_DESC(trace, "Number the link cycles and log each step (bring-up; default: off)");
+
 static struct gs201_pcie_cp *gs201_cp;
 static DEFINE_MUTEX(gs201_cp_lock);	/* gs201_cp against probe/remove */
 
@@ -946,6 +951,18 @@ static void cp_link_down(struct gs201_pcie_cp *cp)
 	bool was_inited = cp->phy_inited;
 	u32 val;
 
+	/*
+	 * Bring-up (MODEM-PLAN G3-L1): number the link cycles and name each
+	 * step, so the kept console says which step of which cycle stopped.
+	 * The hang under GNSS traffic falls inside one of these windows, and
+	 * the register audit found no unguarded access, so what is wanted is
+	 * the step, not the address. Rate-limited prints would lose exactly
+	 * the lines that matter, hence dev_info().
+	 */
+	cp->cycle++;
+	if (cp_trace)
+		dev_info(cp->dev, "cycle %u: down: ctrl irq off\n", cp->cycle);
+
 	cp_ctrl_irq(cp, false);		/* reads ELBI: before anything else */
 	cp_cfg_allow(cp, false, false);
 	cp_msi_irqs(cp, false);
@@ -961,6 +978,8 @@ static void cp_link_down(struct gs201_pcie_cp *cp)
 		udelay(20);
 		cp_elbi_write(cp, CP_ELBI_SOFT_RESET, val | CP_ELBI_SOFT_PWR_RESET);
 	}
+	if (cp_trace)
+		dev_info(cp->dev, "cycle %u: down: phy power off\n", cp->cycle);
 	if (cp->phy_on) {
 		phy_power_off(cp->phy);
 		cp->phy_on = false;
@@ -969,9 +988,13 @@ static void cp_link_down(struct gs201_pcie_cp *cp)
 		phy_exit(cp->phy);	/* clocks only: isolation stays off */
 		cp->phy_inited = false;
 	}
+	if (cp_trace)
+		dev_info(cp->dev, "cycle %u: down: isolate\n", cp->cycle);
 	/* Only undo what link_up did: an untouched PHY is still isolated. */
 	if (was_inited)
 		cp_phy_isolate(cp);
+	if (cp_trace)
+		dev_info(cp->dev, "cycle %u: down: done\n", cp->cycle);
 	cp->link_up = false;
 	cp->atu_done = false;
 }
@@ -1071,6 +1094,8 @@ static int cp_link_try(struct gs201_pcie_cp *cp, unsigned int speed, bool last)
 
 static int cp_link_up(struct gs201_pcie_cp *cp, unsigned int speed)
 {
+	if (cp_trace)
+		dev_info(cp->dev, "cycle %u: up: begin\n", cp->cycle);
 	struct dw_pcie *pci = &cp->pci;
 	unsigned int try;
 	u16 lnksta;
@@ -1093,6 +1118,8 @@ static int cp_link_up(struct gs201_pcie_cp *cp, unsigned int speed)
 		if (ret)
 			return ret;
 		cp_dbi_allow(cp, true);
+	if (cp_trace)
+		dev_info(cp->dev, "cycle %u: up: dbi allowed\n", cp->cycle);
 		cp->phy_inited = true;
 	}
 
