@@ -1109,9 +1109,9 @@ MODULE_PARM_DESC(allow_poweroff, "Let cbd power the modem off (default: off, the
  * held, a hang that stays is not the link's, and one that goes away is.
  * A forced power-off (crash, shutdown) still powers it off.
  */
-static bool keep_link_up;
-module_param(keep_link_up, bool, 0644);
-MODULE_PARM_DESC(keep_link_up, "Never power the PCIe link off on the CP's request (bring-up; default: off)");
+static int keep_link_up;
+module_param(keep_link_up, int, 0644);
+MODULE_PARM_DESC(keep_link_up, "Never power the PCIe link off on the CP's request: 1 keep the wake line high, 2 answer on it (bring-up; default: 0)");
 
 static int power_off_cp(struct modem_ctl *mc)
 {
@@ -1766,7 +1766,16 @@ static int s5100_poweroff_pcie(struct modem_ctl *mc, bool force_off)
 	}
 
 	if (keep_link_up && !force_off) {
-		mif_info_limited("Skip pci power off: keep_link_up\n");
+		/*
+		 * keep_link_up=2: answer the CP's request on ap2cp_wakeup as the
+		 * full path does, and keep only the link itself up. With the line
+		 * left high (keep_link_up=1) the CP crashed 103-108 s after
+		 * ONLINE, every boot (2026-10-30), which is what an unanswered
+		 * power-off request looks like from the CP's side.
+		 */
+		if (keep_link_up >= 2)
+			mif_gpio_set_value(&mc->cp_gpio[CP_GPIO_AP2CP_WAKEUP], 0, 5);
+		mif_info_limited("Skip pci power off: keep_link_up=%d\n", keep_link_up);
 		goto exit;
 	}
 
