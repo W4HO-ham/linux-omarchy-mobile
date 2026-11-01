@@ -1,0 +1,19 @@
+Bring-up modules from the Pixel 9a's SLEEP-PLAN S1 (omarchy-mobile,
+device/tegu/SLEEP-PLAN.md), 2026-11-01. Not for merge; built out of tree
+against the palmtop's integration kernel
+(7.3.0-rc6-omamobile-tegu-s2mpg15-m1-g991042e2eff3-dirty):
+
+  make -C <tree> O=<out> ARCH=arm64 LLVM=1 M=$PWD modules
+
+tegu-wdt-s2idle.c  restarts the cluster 0 watchdog in the noirq phase, with
+                   the PMU reset path unmasked and its counter enabled, and
+                   stops it in resume_noirq. It copies struct s3c2410_wdt
+                   from that tree. Armed, three sleeps of three ended in a
+                   reset with ACPM no longer answering: it is not a way to
+                   catch the sleep hang. Anything like it needs a runbook
+                   entry first (a stop condition and the UFS check after
+                   each reset).
+tegu-pmic-wakeread.c  reads the S2MPG14's INT1-INT5 and their masks through
+                   the PMIC's regmap in suspend_noirq and resume_noirq. Reads
+                   only; INT1-INT5 clear on read, so the driver misses the
+                   wake it logged.
