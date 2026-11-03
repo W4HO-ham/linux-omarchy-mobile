@@ -1901,6 +1901,13 @@ static int exynos_ufs_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
 	struct exynos_ufs *ufs = ufshcd_get_variant(hba);
 
+	/*
+	 * The sysreg block holding the IO coherency bits may lose its
+	 * state across system sleep; the downstream driver sets them again
+	 * at every resume.
+	 */
+	exynos_ufs_shareability(ufs);
+
 	if (!ufshcd_is_link_active(hba))
 		phy_power_on(ufs->phy);
 
