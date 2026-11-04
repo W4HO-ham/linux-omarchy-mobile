@@ -247,6 +247,8 @@ static const struct brcmf_firmware_mapping brcmf_pcie_fwnames[] = {
 						 BRCMF_PCIE_64_MB_INT_D2H7_DB1)
 
 #define BRCMF_PCIE_SHARED_VERSION_7		7
+/* Google's dhd refuses version 8, and so do we */
+#define BRCMF_PCIE_SHARED_VERSION_8		8
 #define BRCMF_PCIE_SHARED_VERSION_9		9
 #define BRCMF_PCIE_MIN_SHARED_VERSION		5
 #define BRCMF_PCIE_MAX_SHARED_VERSION		BRCMF_PCIE_SHARED_VERSION_9
@@ -1784,14 +1786,22 @@ static int brcmf_pcie_init_ringbuffers(struct brcmf_pciedev_info *devinfo)
 	    (devinfo->shared.ring_info_addr & 3 ||
 	     !brcmf_pcie_valid_ram_range(devinfo,
 				       devinfo->shared.ring_info_addr,
-				       sizeof(ringinfo))))
+				       sizeof(ringinfo)))) {
+		brcmf_err(bus, "ring info at 0x%08x is misaligned or outside RAM\n",
+			  devinfo->shared.ring_info_addr);
 		return -EINVAL;
+	}
 
 	brcmf_pcie_copy_dev_tomem(devinfo, devinfo->shared.ring_info_addr,
 				  &ringinfo, sizeof(ringinfo));
 	if (devinfo->shared.version == BRCMF_PCIE_SHARED_VERSION_9 &&
-	    !brcmf_pcie_api9_valid_ringinfo(devinfo, &ringinfo))
+	    !brcmf_pcie_api9_valid_ringinfo(devinfo, &ringinfo)) {
+		brcmf_err(bus, "invalid API9 ring info (%u submission, %u completion, %u flow rings)\n",
+			  le16_to_cpu(ringinfo.max_submissionrings),
+			  le16_to_cpu(ringinfo.max_completionrings),
+			  le16_to_cpu(ringinfo.max_flowrings));
 		return -EINVAL;
+	}
 	if (devinfo->shared.version >= 6) {
 		max_submissionrings = le16_to_cpu(ringinfo.max_submissionrings);
 		max_flowrings = le16_to_cpu(ringinfo.max_flowrings);
@@ -2005,6 +2015,11 @@ static int brcmf_pcie_init_scratchbuffers(struct brcmf_pciedev_info *devinfo)
 	       BRCMF_SHARED_DMA_SCRATCH_LEN_OFFSET;
 	brcmf_pcie_write_tcm32(devinfo, addr, BRCMF_DMA_D2H_SCRATCH_BUF_LEN);
 
+	/*
+	 * Host ready goes here, once the common rings are set up, and not
+	 * again in preinit: the BCM4389's and API9 firmware trap on a second
+	 * one (Broadcom's hostrdy_after_init).
+	 */
 	if (brcmf_pcie_early_hostready(devinfo)) {
 		/* API9 uses the legacy ring-update slots for host SCB offload. */
 		if (devinfo->shared.version == BRCMF_PCIE_SHARED_VERSION_9) {
@@ -2059,7 +2074,11 @@ static int brcmf_pcie_preinit(struct device *dev)
 	brcmf_dbg(PCIE, "Enter\n");
 
 	brcmf_pcie_intr_enable(buspub->devinfo);
-	/* The early path already notified firmware after setting up the rings. */
+	/*
+	 * The BCM4389's and API9 firmware trap on a second host ready, and
+	 * Broadcom's driver rings it once, after the common rings are set up
+	 * (hostrdy_after_init): the early path in setup already did that.
+	 */
 	if (!brcmf_pcie_early_hostready(buspub->devinfo))
 		brcmf_pcie_hostready(buspub->devinfo);
 
@@ -2266,8 +2285,11 @@ brcmf_pcie_init_share_ram_info(struct brcmf_pciedev_info *devinfo,
 
 	/* The version is unknown until this first bounded metadata read. */
 	if (sharedram_addr & 3 ||
-	    !brcmf_pcie_valid_ram_range(devinfo, sharedram_addr, sizeof(u32)))
+	    !brcmf_pcie_valid_ram_range(devinfo, sharedram_addr, sizeof(u32))) {
+		brcmf_err(bus, "shared RAM address 0x%08x is misaligned or outside RAM\n",
+			  sharedram_addr);
 		return -EINVAL;
+	}
 
 	shared->flags = brcmf_pcie_read_tcm32(devinfo, sharedram_addr);
 	shared->version = (u8)(shared->flags & BRCMF_PCIE_SHARED_VERSION_MASK);
@@ -2299,7 +2321,7 @@ brcmf_pcie_init_share_ram_info(struct brcmf_pciedev_info *devinfo,
 	brcmf_dbg(PCIE, "PCIe protocol version %d\n", shared->version);
 	if ((shared->version > BRCMF_PCIE_MAX_SHARED_VERSION) ||
 	    (shared->version < BRCMF_PCIE_MIN_SHARED_VERSION) ||
-	    shared->version == 8) {
+	    shared->version == BRCMF_PCIE_SHARED_VERSION_8) {
 		brcmf_err(bus, "Unsupported PCIE version %d\n",
 			  shared->version);
 		return -EINVAL;
