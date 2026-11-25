@@ -52,6 +52,18 @@ static bool dump_chans;
 module_param(dump_chans, bool, 0444);
 MODULE_PARM_DESC(dump_chans, "Print the raw SRAM channel table at probe");
 
+/*
+ * Test only (linux-omamobile#152), not for merge: give up early on one
+ * channel's answers, so that a normal answer arrives after its request
+ * timed out and the abandoned-slot path runs. 0 is off.
+ */
+static unsigned int test_timeout_chan = 9;
+module_param(test_timeout_chan, uint, 0644);
+MODULE_PARM_DESC(test_timeout_chan, "Test only: the channel test_timeout_us applies to");
+static unsigned int test_timeout_us;
+module_param(test_timeout_us, uint, 0644);
+MODULE_PARM_DESC(test_timeout_us, "Test only: poll timeout in us for test_timeout_chan (0: the normal 100 ms)");
+
 /**
  * struct acpm_shmem - shared memory configuration information.
  * @reserved:	unused fields.
@@ -354,7 +366,9 @@ static int acpm_dequeue_by_polling(struct acpm_chan *achan,
 
 	seqnum = FIELD_GET(ACPM_PROTOCOL_SEQNUM, xfer->txd[0]);
 
-	timeout = ktime_add_us(ktime_get(), ACPM_POLL_TIMEOUT_US);
+	timeout = ktime_add_us(ktime_get(),
+			       READ_ONCE(test_timeout_us) && achan->id == READ_ONCE(test_timeout_chan) ?
+			       READ_ONCE(test_timeout_us) : ACPM_POLL_TIMEOUT_US);
 	do {
 		ret = acpm_get_rx(achan, xfer, &native_match);
 		if (ret)
